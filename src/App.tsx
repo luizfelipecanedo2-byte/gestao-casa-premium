@@ -143,6 +143,17 @@ function App() {
     fetchTransactions()
   }, [])
 
+  // Sincronização inteligente de datas
+  // Quando o usuário altera a competência, a data de lançamento segue automaticamente se ainda for a data de hoje
+  useEffect(() => {
+    if (!editingId && formData.competency_date !== formData.date) {
+      const today = new Date().toISOString().split('T')[0];
+      if (formData.date === today) {
+        setFormData(prev => ({ ...prev, date: formData.competency_date }));
+      }
+    }
+  }, [formData.competency_date])
+
   const fetchTransactions = async () => {
     try {
       setLoading(true)

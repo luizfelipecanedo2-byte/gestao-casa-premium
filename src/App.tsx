@@ -143,16 +143,6 @@ function App() {
     fetchTransactions()
   }, [])
 
-  // Sincronização inteligente de datas
-  // Quando o usuário altera a competência, a data de lançamento segue automaticamente se ainda for a data de hoje
-  useEffect(() => {
-    if (!editingId && formData.competency_date !== formData.date) {
-      const today = new Date().toISOString().split('T')[0];
-      if (formData.date === today) {
-        setFormData(prev => ({ ...prev, date: formData.competency_date }));
-      }
-    }
-  }, [formData.competency_date])
 
   const fetchTransactions = async () => {
     try {
@@ -1104,8 +1094,9 @@ function FluxoView({
             <tr className="text-slate-600 text-[9px] font-black uppercase tracking-[0.2em] border-b border-white/5 bg-white/[0.02]">
               <th className="p-8">ID</th>
               <th className="p-8">IDENTIFICAÇÃO OPERACIONAL</th>
+              <th className="p-8 text-center">COMPRA</th>
+              <th className="p-8 text-center text-indigo-400">PAGAMENTO</th>
               <th className="p-8">CLASSIFICAÇÃO</th>
-              <th className="p-8">VENCIMENTO</th>
               <th className="p-8">INSTITUIÇÃO</th>
               <th className="p-8 text-right">MONTANTE</th>
               <th className="p-8 text-center text-[10px]">AÇÕES</th>
@@ -1137,13 +1128,18 @@ function FluxoView({
                       <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest italic">{t.sub_category}</span>
                     </div>
                   </td>
-                  <td className="p-8">
-                    <span className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black text-slate-400 tracking-widest uppercase">{t.category}</span>
+                  <td className="p-8 text-center">
+                    <span className="text-[10px] font-black text-slate-600 tracking-widest uppercase italic">
+                      {formatDate(t.competency_date || t.date)}
+                    </span>
                   </td>
-                  <td className="p-8 text-[10px] font-black text-slate-500 tracking-widest italic">
-                    <span className={isOverdue ? 'text-rose-500 underline underline-offset-4 decoration-rose-500/50' : ''}>
+                  <td className="p-8 text-center">
+                    <span className={`text-[10px] font-black tracking-widest italic ${isOverdue ? 'text-rose-500 underline underline-offset-4 decoration-rose-500/50' : 'text-indigo-400'}`}>
                       {formatDate(t.date)}
                     </span>
+                  </td>
+                  <td className="p-8">
+                    <span className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black text-slate-400 tracking-widest uppercase">{t.category}</span>
                   </td>
                   <td className="p-8 text-[10px] font-black text-slate-400 tracking-widest flex items-center gap-2 uppercase">
                     <Building2 size={14} className="text-slate-600" />
@@ -1283,12 +1279,12 @@ function TransactionModal({ setIsModalOpen, editingId, setEditingId, formData, s
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic">Data do Lançamento</label>
-                  <input required type="date" className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-xs focus:border-indigo-500 focus:outline-none" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+                  <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic">Compra feito no dia :</label>
+                  <input required type="date" className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-xs focus:border-indigo-500 focus:outline-none" value={formData.competency_date} onChange={(e) => setFormData({ ...formData, competency_date: e.target.value })} />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic">Data de Competência</label>
-                  <input required type="date" className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-xs focus:border-indigo-500 focus:outline-none" value={formData.competency_date} onChange={(e) => setFormData({ ...formData, competency_date: e.target.value })} />
+                  <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic font-bold text-indigo-400">Pagar no dia :</label>
+                  <input required type="date" className="w-full bg-slate-950 border border-indigo-500/30 rounded-2xl p-5 font-black text-xs focus:border-indigo-500 focus:outline-none shadow-[0_0_15px_rgba(99,102,241,0.1)]" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
                 </div>
               </div>
 

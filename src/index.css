@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #030303;
+  --surface-card: #0a0a0a;
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --accent-blue: #3b82f6;
+  --accent-emerald: #10b981;
+  --accent-rose: #f43f5e;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: #fafafa;
+  font-family: 'Outfit', sans-serif;
+  overflow-x: hidden;
+  letter-spacing: -0.02em;
+}
+
+.font-mono-numbers {
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -0.05em;
+}
+
+/* Custom Utilities for the Stealth Luxury Look */
+@layer components {
+  .glass-card {
+    @apply bg-[#0c0c0c] border border-white/[0.06] rounded-[2.5rem] shadow-2xl;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .glass-card-hover {
+    @apply transition-all duration-500 hover:border-white/[0.12] hover:bg-[#111111] hover:shadow-indigo-500/10;
+  }
+
+  .neon-text {
+    text-shadow: 0 0 20px currentColor;
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-white/40;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-white/10 rounded-full hover:bg-white/20;
+}

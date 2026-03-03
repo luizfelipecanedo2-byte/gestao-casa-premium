@@ -128,7 +128,8 @@ function App() {
     notes: '',
     payment_date: '',
     status: 'pending' as 'pending' | 'completed',
-    installments: '1'
+    installments: '1',
+    entry_type: 'single' as 'single' | 'installment' | 'recurrent'
   })
 
   useEffect(() => {
@@ -183,7 +184,7 @@ function App() {
         }
         const { error } = await supabase.from('home_transactions').update(payload).eq('id', editingId)
         if (error) throw error
-      } else if (numInstallments > 1 && formData.payment_method === 'CARTÃO DE CRÉDITO') {
+      } else if (numInstallments > 1 && (formData.entry_type === 'installment' || formData.entry_type === 'recurrent')) {
         const insertData = [];
         const baseTitle = formData.title.toUpperCase() || formData.sub_category;
 
@@ -191,11 +192,14 @@ function App() {
           const transDate = new Date(formData.date + 'T12:00:00');
           transDate.setMonth(transDate.getMonth() + (i - 1));
 
+          // Se for parcelamento, divide o valor. Se for recorrente, repete o valor cheio.
+          const finalAmount = formData.entry_type === 'installment' ? amountPerInstallment : totalAmount;
+
           insertData.push({
-            title: `${baseTitle} [${i}/${numInstallments}]`,
+            title: numInstallments > 1 ? `${baseTitle} [${i}/${numInstallments}]` : baseTitle,
             category: formData.category,
             sub_category: formData.sub_category,
-            amount: amountPerInstallment,
+            amount: finalAmount,
             type: formData.type,
             date: transDate.toISOString().split('T')[0],
             competency_date: formData.date,
@@ -284,7 +288,8 @@ function App() {
       notes: '',
       payment_date: '',
       status: 'pending',
-      installments: '1'
+      installments: '1',
+      entry_type: 'single'
     })
   }
 
@@ -1161,7 +1166,9 @@ function FluxoView({
 
 function TransactionModal({ setIsModalOpen, editingId, setEditingId, formData, setFormData, handleSaveTransaction, categories, subCategories, banks, paymentMethods, formatCurrency }: any) {
   const numInstallments = parseInt(formData.installments) || 1;
-  const installmentValue = (Number(formData.amount) || 0) / numInstallments;
+  const installmentValue = formData.entry_type === 'installment'
+    ? (Number(formData.amount) || 0) / numInstallments
+    : Number(formData.amount) || 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1216,18 +1223,22 @@ function TransactionModal({ setIsModalOpen, editingId, setEditingId, formData, s
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic">Forma de Movimentação</label>
-                  <select className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-[10px] focus:border-indigo-500 focus:outline-none uppercase appearance-none cursor-pointer" value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}>
-                    {paymentMethods.map(method => <option key={method} value={method}>{method}</option>)}
+                  <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic">Tipo de Lançamento</label>
+                  <select className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-[10px] focus:border-indigo-500 focus:outline-none uppercase appearance-none cursor-pointer text-indigo-400" value={formData.entry_type} onChange={(e) => setFormData({ ...formData, entry_type: e.target.value, installments: e.target.value === 'single' ? '1' : formData.installments })}>
+                    <option value="single">Lançamento Único</option>
+                    <option value="installment">Parcelado (Dividir Total)</option>
+                    <option value="recurrent">Recorrente (Repetir Valor)</option>
                   </select>
                 </div>
-                {!editingId && formData.payment_method === 'CARTÃO DE CRÉDITO' && (
+                {!editingId && formData.entry_type !== 'single' && (
                   <div>
-                    <label className="text-[10px] font-black text-indigo-400 tracking-[0.2em] mb-3 block uppercase italic">Parcelamento</label>
+                    <label className="text-[10px] font-black text-indigo-400 tracking-[0.2em] mb-3 block uppercase italic">
+                      {formData.entry_type === 'installment' ? 'Parcelas' : 'Duração (Meses)'}
+                    </label>
                     <div className="relative">
                       <ListOrdered className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={16} />
                       <select className="w-full bg-slate-950 border border-indigo-500/30 rounded-2xl p-5 pl-12 font-black text-xs focus:border-indigo-500 focus:outline-none uppercase appearance-none cursor-pointer" value={formData.installments} onChange={(e) => setFormData({ ...formData, installments: e.target.value })}>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12].map(n => <option key={n} value={n.toString()}>{n}x sem juros</option>)}
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24, 36, 48].map(n => <option key={n} value={n.toString()}>{n}x {formData.entry_type === 'recurrent' ? 'meses' : ''}</option>)}
                       </select>
                     </div>
                   </div>
@@ -1237,19 +1248,25 @@ function TransactionModal({ setIsModalOpen, editingId, setEditingId, formData, s
 
             {/* Bloco 2: Instituição e Cronograma */}
             <div className="space-y-8">
-              <div>
-                <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic">
-                  {formData.status === 'completed' && formData.payment_method !== 'CARTÃO DE CRÉDITO'
-                    ? 'Conta de Origem (Onde sai o dinheiro)'
-                    : formData.payment_method === 'CARTÃO DE CRÉDITO' && formData.status === 'completed'
-                      ? 'Conta que pagou a Fatura'
-                      : 'Instituição Responsável / Cartão'}
-                </label>
-                <div className="relative">
-                  <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
-                  <select className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 pl-12 font-black text-xs focus:border-indigo-500 focus:outline-none uppercase appearance-none cursor-pointer" value={formData.bank} onChange={(e) => setFormData({ ...formData, bank: e.target.value })}>
-                    {banks.map(b => <option key={b} value={b} className="bg-slate-900 uppercase">{b}</option>)}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic">Forma de Movimentação</label>
+                  <select className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-[10px] focus:border-indigo-500 focus:outline-none uppercase appearance-none cursor-pointer text-white" value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}>
+                    {paymentMethods.map(method => <option key={method} value={method}>{method}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic">
+                    {formData.status === 'completed' && formData.payment_method !== 'CARTÃO DE CRÉDITO'
+                      ? 'Conta de Origem'
+                      : 'Instituição / Cartão'}
+                  </label>
+                  <div className="relative">
+                    <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
+                    <select className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 pl-12 font-black text-xs focus:border-indigo-500 focus:outline-none uppercase appearance-none cursor-pointer" value={formData.bank} onChange={(e) => setFormData({ ...formData, bank: e.target.value })}>
+                      {banks.map(b => <option key={b} value={b} className="bg-slate-900 uppercase">{b}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -1281,13 +1298,19 @@ function TransactionModal({ setIsModalOpen, editingId, setEditingId, formData, s
 
           <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-10">
             <div className="w-full md:max-w-sm">
-              <label className="text-[10px] font-black text-indigo-400 tracking-[0.3em] mb-3 block uppercase italic">{numInstallments > 1 ? 'Valor TOTAL da Compra' : 'Valor da Operação (R$)'}</label>
+              <label className="text-[10px] font-black text-indigo-400 tracking-[0.3em] mb-3 block uppercase italic">
+                {formData.entry_type === 'installment' ? 'Valor TOTAL da Compra' : 'Valor da Operação (R$)'}
+              </label>
               <div className="relative">
                 <span className="absolute left-6 top-1/2 -translate-y-1/2 text-indigo-500 font-black text-2xl">R$</span>
                 <input required type="number" placeholder="0,00" step="0.01" className="w-full bg-indigo-500/10 border-2 border-indigo-500/30 rounded-3xl p-7 pl-20 font-black text-4xl tracking-tighter text-indigo-100 focus:outline-none focus:border-indigo-500 transition-all shadow-[0_0_30px_rgba(99,102,241,0.1)]" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} />
               </div>
               {numInstallments > 1 && (
-                <p className="text-[10px] font-black text-slate-500 mt-3 italic uppercase">Serão geradas {numInstallments} parcelas de {formatCurrency(installmentValue)}</p>
+                <p className="text-[10px] font-black text-slate-500 mt-3 italic uppercase">
+                  {formData.entry_type === 'installment'
+                    ? `Serão geradas ${numInstallments} parcelas de ${formatCurrency(installmentValue)}`
+                    : `Será repetido o valor de ${formatCurrency(installmentValue)} por ${numInstallments} meses`}
+                </p>
               )}
             </div>
             <button type="submit" className="w-full md:flex-1 bg-gradient-to-r from-indigo-700 to-indigo-600 hover:from-indigo-600 hover:to-indigo-500 text-white font-black py-8 rounded-[2.5rem] transition-all shadow-2xl flex items-center justify-center gap-4 tracking-[0.5em] uppercase text-xl group">

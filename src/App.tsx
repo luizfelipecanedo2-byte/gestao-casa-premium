@@ -68,6 +68,7 @@ const categories = [
   { id: '6', name: 'DESPESA COM CASA', color: '#3b82f6', type: 'payable' }, // Blue
   { id: '7', name: 'DESPESA COM TRANSPORTE', color: '#8b5cf6', type: 'payable' }, // Purple
   { id: '8', name: 'INVESTIMENTO', color: '#f43f5e', type: 'receivable' }, // Rose
+  { id: '9', name: 'DESPESA COM SAÚDE', color: '#ef4444', type: 'payable' }, // Red
 ]
 
 const subCategoriesMap: Record<string, string[]> = {
@@ -78,7 +79,8 @@ const subCategoriesMap: Record<string, string[]> = {
   'DESPESA PESSOAL': ['CABELO', 'MESADA', 'DIZIMO', 'ROUPAS', 'ACESSÓRIOS', 'ACADEMIA'],
   'DESPESA COM CASA': ['ÁGUA', 'LUZ', 'INTERNET', 'TERRENO', 'OUTROS'],
   'DESPESA COM TRANSPORTE': ['GASOLINA MOTO', 'GASOLINA BIZ', 'GASOLINA CARRO', 'CONSERTO DA MOTO', 'CONSERTO DA BIZ', 'DESPESA COM CARRO'],
-  'INVESTIMENTO': ['RENDA FIXA', 'RENDA VARIAVEL', 'RESERVA DE EMERGENCIA']
+  'INVESTIMENTO': ['RENDA FIXA', 'RENDA VARIAVEL', 'RESERVA DE EMERGENCIA'],
+  'DESPESA COM SAÚDE': ['FARMÁCIA', 'EXAME', 'HOSPITAL']
 }
 
 const banks = ["ITAÚ", "NUBANK", "C6 BANK", "INTER", "BRADESCO", "SANTANDER", "XP", "DINHEIRO ESPÉCIE"]

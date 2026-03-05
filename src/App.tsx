@@ -86,7 +86,7 @@ const subCategoriesMap: Record<string, string[]> = {
   'DESPESA COM SAÚDE': ['FARMÁCIA', 'EXAME', 'HOSPITAL']
 }
 
-const banks = ["ITAÚ", "NUBANK", "C6 BANK", "INTER", "BRADESCO", "SANTANDER", "XP", "DINHEIRO ESPÉCIE"]
+const banks = ["ITAÚ", "NUBANK", "COFRINHO NUBANK", "C6 BANK", "INTER", "BRADESCO", "SANTANDER", "XP", "DINHEIRO ESPÉCIE"]
 const paymentMethods = ["PIX", "CARTÃO DE CRÉDITO", "DÉBITO", "BOLETO", "DINHEIRO"]
 
 interface Transaction {
@@ -656,22 +656,43 @@ function DashboardView({
     .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 3);
 
-  const COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#ec4899'];
+  const getBankActualBalance = (bankName: string) => {
+    return transactions
+      .filter((t: any) => t.status === 'completed' && t.bank === bankName)
+      .reduce((acc: number, t: any) => t.type === 'receivable' ? acc + (t.amount || 0) : acc - (t.amount || 0), 0);
+  };
 
-  const lifestyleCategories = [
-    'ALIMENTAÇÃO', 'LAZER', 'PESSOAL', 'CASA', 'TRANSPORTE'
+  const bankBalances = [
+    {
+      name: 'DINHEIRO',
+      bank: 'DINHEIRO ESPÉCIE',
+      value: getBankActualBalance('DINHEIRO ESPÉCIE'),
+      icon: <DollarSign size={14} className="text-emerald-500" />,
+      color: 'bg-emerald-500/10 border-emerald-500/20'
+    },
+    {
+      name: 'NUBANK',
+      bank: 'NUBANK',
+      value: getBankActualBalance('NUBANK'),
+      icon: <CreditCard size={14} className="text-purple-500" />,
+      color: 'bg-purple-500/10 border-purple-500/20'
+    },
+    {
+      name: 'C6 BANK',
+      bank: 'C6 BANK',
+      value: getBankActualBalance('C6 BANK'),
+      icon: <Building2 size={14} className="text-slate-400" />,
+      color: 'bg-white/5 border-white/10'
+    },
+    {
+      name: 'COFRINHO NU',
+      bank: 'COFRINHO NUBANK',
+      value: getBankActualBalance('COFRINHO NUBANK'),
+      icon: <PiggyBank size={14} className="text-pink-500" />,
+      color: 'bg-pink-500/10 border-pink-500/20'
+    },
   ];
-
-  const radarData = lifestyleCategories.map(label => {
-    const matchingCat = categories.find(c => c.name.includes(label));
-    const total = filteredTransactions
-      .filter((t: any) => t.category === matchingCat?.name)
-      .reduce((acc: number, t: any) => acc + (t.amount || 0), 0);
-    return {
-      subject: label,
-      value: total,
-    };
-  });
+  const totalCaixaReal = bankBalances.reduce((acc, b) => acc + b.value, 0);
 
   const maskValue = (val: string) => isPrivate ? '••••••' : val;
 
@@ -845,32 +866,43 @@ function DashboardView({
             </div>
           </div>
 
-          {/* Lifestyle Radar Chart */}
-          <div className="glass-card p-6 flex flex-col min-h-[220px]">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest italic">Lifestyle Radar</span>
-              <Target size={14} className="text-slate-700" />
+          {/* Conciliação Bancária */}
+          <div className="glass-card p-6 flex flex-col min-h-[220px] relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-indigo-500/20 transition-all" />
+
+            <div className="flex justify-between items-center mb-6 relative z-10">
+              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest italic flex items-center gap-2">
+                <Target size={14} className="text-indigo-500" /> CONCILIAÇÃO BANCÁRIA
+              </span>
+              <div className="text-right">
+                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Valor em Caixa</p>
+                <p className="text-xl font-black font-mono-numbers text-white">{maskValue(formatCurrency(totalCaixaReal))}</p>
+              </div>
             </div>
-            <div className="flex-1 w-full relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart cx="50%" cy="50%" outerRadius="60%" data={radarData}>
-                  <PolarGrid stroke="rgba(255,255,255,0.05)" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#475569', fontSize: 8, fontWeight: 900 }} />
-                  <Radar
-                    name="Gastos"
-                    dataKey="value"
-                    stroke="#6366f1"
-                    fill="#6366f1"
-                    fillOpacity={0.5}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-              {isPrivate && (
-                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center rounded-xl">
-                  <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Protegido</span>
+
+            <div className="flex-1 w-full relative z-10 space-y-3 mt-2 overflow-y-auto scrollbar-hide pr-2">
+              {bankBalances.map((b) => (
+                <div key={b.name} className="flex items-center justify-between p-3 rounded-2xl bg-black/40 border border-white/5 hover:border-white/20 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${b.color}`}>
+                      {b.icon}
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{b.name}</p>
+                    </div>
+                  </div>
+                  <span className={`text-sm font-black font-mono-numbers ${b.value >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {maskValue(formatCurrency(b.value))}
+                  </span>
                 </div>
-              )}
+              ))}
             </div>
+
+            {isPrivate && (
+              <div className="absolute inset-0 z-20 bg-black/40 backdrop-blur-sm flex items-center justify-center rounded-xl">
+                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Saldo Protegido</span>
+              </div>
+            )}
           </div>
         </div>
 

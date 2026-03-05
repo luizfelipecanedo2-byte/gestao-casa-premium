@@ -20,7 +20,10 @@ import {
   Edit2,
   Trash2,
   ListOrdered,
-  Download
+  Download,
+  Home,
+  Briefcase,
+  Layers
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -101,12 +104,33 @@ interface Transaction {
   notes?: string
 }
 
+interface ExpenseItem {
+  description: string
+  unit: string
+  quantity: number
+  unitValue: number
+  totalValue: number
+}
+
+interface ServiceExpense {
+  id: string
+  client_name: string
+  environment: string
+  service_value: number
+  spent_value: number
+  items: ExpenseItem[]
+  created_at?: string
+}
+
 function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'fluxo'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'fluxo' | 'margem'>('dashboard')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [serviceExpenses, setServiceExpenses] = useState<ServiceExpense[]>([])
   const [isPrivate, setIsPrivate] = useState(false)
   const [timeRange, setTimeRange] = useState<'month' | 'year'>('month')
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
@@ -120,7 +144,7 @@ function App() {
   const [formData, setFormData] = useState({
     title: '',
     category: 'RECEITA SALÁRIO',
-    sub_category: '',
+    sub_category: subCategoriesMap['RECEITA SALÁRIO'][0],
     amount: '',
     type: 'receivable' as 'payable' | 'receivable',
     date: new Date().toISOString().split('T')[0],
@@ -134,6 +158,14 @@ function App() {
     entry_type: 'single' as 'single' | 'installment' | 'recurrent'
   })
 
+  // Estado para o formulário de Margem/Serviço
+  const [serviceFormData, setServiceFormData] = useState({
+    client_name: '',
+    environment: '',
+    service_value: '',
+    items: [] as ExpenseItem[]
+  })
+
   useEffect(() => {
     const subs = subCategoriesMap[formData.category] || []
     if (subs.length > 0 && !subs.includes(formData.sub_category)) {
@@ -143,7 +175,22 @@ function App() {
 
   useEffect(() => {
     fetchTransactions()
+    fetchServiceExpenses()
   }, [])
+
+  const fetchServiceExpenses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('service_expenses')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setServiceExpenses(data || [])
+    } catch (error) {
+      console.error('Erro ao buscar gastos por serviço:', error)
+    }
+  }
 
 
   const fetchTransactions = async () => {
@@ -192,8 +239,21 @@ function App() {
         const baseTitle = formData.title.toUpperCase() || formData.sub_category;
 
         for (let i = 1; i <= numInstallments; i++) {
-          const transDate = new Date(formData.date + 'T12:00:00');
-          transDate.setMonth(transDate.getMonth() + (i - 1));
+          // Safe string-based date increment to avoid timezone bugs
+          const [yyyy, mm, dd] = formData.date.split('-');
+          let yearNum = parseInt(yyyy, 10);
+          let monthNum = parseInt(mm, 10) + (i - 1);
+
+          // Adjust year and month
+          if (monthNum > 12) {
+            yearNum += Math.floor((monthNum - 1) / 12);
+            monthNum = ((monthNum - 1) % 12) + 1;
+          }
+
+          const newMonth = monthNum.toString().padStart(2, '0');
+          const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+          const newDay = Math.min(parseInt(dd, 10), daysInMonth).toString().padStart(2, '0');
+          const newDateStr = `${yearNum}-${newMonth}-${newDay}`;
 
           // Se for parcelamento, divide o valor. Se for recorrente, repete o valor cheio.
           const finalAmount = formData.entry_type === 'installment' ? amountPerInstallment : totalAmount;
@@ -204,8 +264,8 @@ function App() {
             sub_category: formData.sub_category,
             amount: finalAmount,
             type: formData.type,
-            date: transDate.toISOString().split('T')[0],
-            competency_date: formData.date,
+            date: newDateStr,
+            competency_date: formData.competency_date,
             bank: formData.bank,
             payment_method: formData.payment_method,
             notes: formData.notes.toUpperCase(),
@@ -444,6 +504,7 @@ function App() {
                 filterStatus={filterStatus}
                 setFilterStatus={setFilterStatus}
                 banks={banks}
+                onRefresh={fetchTransactions}
               />
             )}
           </main>
@@ -927,8 +988,12 @@ function FluxoView({
   setFilterType,
   filterStatus,
   setFilterStatus,
-  banks
+  banks,
+  onRefresh
 }: any) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const months = [
     { val: '0', label: 'JANEIRO' }, { val: '1', label: 'FEVEREIRO' }, { val: '2', label: 'MARÇO' },
     { val: '3', label: 'ABRIL' }, { val: '4', label: 'MAIO' }, { val: '5', label: 'JUNHO' },
@@ -948,6 +1013,43 @@ function FluxoView({
 
     return matchesText && matchesMonth && matchesBank && matchesType && matchesStatus;
   });
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filtered.map((t: any) => t.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleBulkPay = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Deseja efetivar o pagamento de ${selectedIds.length} conta(s)?`)) return;
+
+    try {
+      setIsProcessing(true);
+      const today = new Date().toISOString().split('T')[0];
+
+      const { error } = await supabase
+        .from('home_transactions')
+        .update({ status: 'completed', payment_date: today })
+        .in('id', selectedIds);
+
+      if (error) throw error;
+
+      setSelectedIds([]);
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao realizar pagamento em lote.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const totals = filtered.reduce((acc: any, t: any) => {
     if (t.type === 'receivable') acc.in += (t.amount || 0);
@@ -1090,84 +1192,119 @@ function FluxoView({
         </button>
       </div>
 
-      <div className="bg-slate-900/40 border border-white/5 rounded-[2.5rem] overflow-hidden border-b-4 border-b-indigo-500/20 shadow-2xl">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="text-slate-600 text-[9px] font-black uppercase tracking-[0.2em] border-b border-white/5 bg-white/[0.02]">
-              <th className="p-8">ID</th>
-              <th className="p-8">IDENTIFICAÇÃO OPERACIONAL</th>
-              <th className="p-8 text-center">COMPRA</th>
-              <th className="p-8 text-center text-indigo-400">PAGAMENTO</th>
-              <th className="p-8">CLASSIFICAÇÃO</th>
-              <th className="p-8">INSTITUIÇÃO</th>
-              <th className="p-8 text-right">MONTANTE</th>
-              <th className="p-8 text-center text-[10px]">AÇÕES</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {filtered.map((t: any) => {
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const transDate = new Date(t.date + 'T12:00:00');
-              const isOverdue = t.status === 'pending' && transDate < today;
+      <div className="bg-slate-900/40 border border-white/5 rounded-[2.5rem] overflow-hidden border-b-4 border-b-indigo-500/20 shadow-2xl relative pb-20">
+        {selectedIds.length > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 z-20 glass-card bg-indigo-600/20 border-t border-indigo-500/30 p-4 flex items-center justify-between animate-in slide-in-from-bottom-5">
+            <div className="flex flex-col ml-4">
+              <span className="text-white font-black uppercase text-sm">{selectedIds.length} Lançamentos Selecionados</span>
+              <span className="text-indigo-400 font-bold text-[10px] uppercase tracking-widest">Processamento em Lote Ativo</span>
+            </div>
+            <button
+              onClick={handleBulkPay}
+              disabled={isProcessing}
+              className="px-6 py-3 bg-indigo-500 hover:bg-indigo-400 text-white font-black text-[10px] uppercase rounded-xl tracking-widest shadow-lg shadow-indigo-500/30 transition-all flex items-center gap-2"
+            >
+              {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+              Baixar Linhas
+            </button>
+          </div>
+        )}
+        <div className="w-full overflow-x-auto">
+          <table className="w-full text-left min-w-[1000px]">
+            <thead>
+              <tr className="text-slate-600 text-[9px] font-black uppercase tracking-[0.2em] border-b border-white/5 bg-white/[0.02]">
+                <th className="p-8 w-16 text-center">
+                  <input
+                    type="checkbox"
+                    onChange={handleSelectAll}
+                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                    className="w-4 h-4 rounded border-white/10 bg-black/50 text-indigo-500 focus:ring-indigo-500/50 cursor-pointer"
+                  />
+                </th>
+                <th className="p-8">ID</th>
+                <th className="p-8">IDENTIFICAÇÃO OPERACIONAL</th>
+                <th className="p-8 text-center">COMPRA</th>
+                <th className="p-8 text-center text-indigo-400">PAGAMENTO</th>
+                <th className="p-8">CLASSIFICAÇÃO</th>
+                <th className="p-8">INSTITUIÇÃO</th>
+                <th className="p-8 text-right">MONTANTE</th>
+                <th className="p-8 text-center text-[10px]">AÇÕES</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {filtered.map((t: any) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const transDate = new Date(t.date + 'T12:00:00');
+                const isOverdue = t.status === 'pending' && transDate < today;
+                const isSelected = selectedIds.includes(t.id);
 
-              return (
-                <tr key={t.id} className={`group hover:bg-white/[0.03] transition-colors font-black ${isOverdue ? 'bg-rose-500/[0.02]' : ''}`}>
-                  <td className="p-8">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isOverdue ? 'bg-rose-500 text-white animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.4)]' : t.type === 'receivable' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                      {isOverdue ? <AlertCircle size={18} /> : t.type === 'receivable' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                    </div>
-                  </td>
-                  <td className="p-8">
-                    <div className="flex items-center gap-3">
-                      <p className="font-black text-sm tracking-tight text-white/90 uppercase">{t.title}</p>
-                      {isOverdue && <span className="text-[7px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full animate-bounce uppercase">Atraso</span>}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${t.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' : isOverdue ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-rose-500/10 text-rose-500'}`}>
-                        {t.status === 'completed' ? 'PAGO' : isOverdue ? 'ATRASADO' : 'PENDENTE'}
+                return (
+                  <tr key={t.id} className={`group hover:bg-white/[0.03] transition-colors font-black ${isOverdue ? 'bg-rose-500/[0.02]' : ''} ${isSelected ? 'bg-indigo-500/[0.05]' : ''}`}>
+                    <td className="p-8 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleSelectOne(t.id)}
+                        className="w-4 h-4 rounded border-white/10 bg-black/50 text-indigo-500 focus:ring-indigo-500/50 cursor-pointer"
+                      />
+                    </td>
+                    <td className="p-8">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isOverdue ? 'bg-rose-500 text-white animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.4)]' : t.type === 'receivable' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                        {isOverdue ? <AlertCircle size={18} /> : t.type === 'receivable' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                      </div>
+                    </td>
+                    <td className="p-8">
+                      <div className="flex items-center gap-3">
+                        <p className="font-black text-sm tracking-tight text-white/90 uppercase">{t.title}</p>
+                        {isOverdue && <span className="text-[7px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full animate-bounce uppercase">Atraso</span>}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${t.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' : isOverdue ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-rose-500/10 text-rose-500'}`}>
+                          {t.status === 'completed' ? 'PAGO' : isOverdue ? 'ATRASADO' : 'PENDENTE'}
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest italic">{t.sub_category}</span>
+                      </div>
+                    </td>
+                    <td className="p-8 text-center">
+                      <span className="text-[10px] font-black text-slate-600 tracking-widest uppercase italic">
+                        {formatDate(t.competency_date || t.date)}
                       </span>
-                      <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest italic">{t.sub_category}</span>
-                    </div>
-                  </td>
-                  <td className="p-8 text-center">
-                    <span className="text-[10px] font-black text-slate-600 tracking-widest uppercase italic">
-                      {formatDate(t.competency_date || t.date)}
-                    </span>
-                  </td>
-                  <td className="p-8 text-center">
-                    <span className={`text-[10px] font-black tracking-widest italic ${isOverdue ? 'text-rose-500 underline underline-offset-4 decoration-rose-500/50' : 'text-indigo-400'}`}>
-                      {formatDate(t.date)}
-                    </span>
-                  </td>
-                  <td className="p-8">
-                    <span className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black text-slate-400 tracking-widest uppercase">{t.category}</span>
-                  </td>
-                  <td className="p-8 text-[10px] font-black text-slate-400 tracking-widest flex items-center gap-2 uppercase">
-                    <Building2 size={14} className="text-slate-600" />
-                    {t.bank || '---'}
-                  </td>
-                  <td className={`p-8 text-right font-black text-xl tracking-tighter ${t.type === 'receivable' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                    {formatCurrency(t.amount)}
-                  </td>
-                  <td className="p-8">
-                    <div className="flex items-center justify-center gap-3">
-                      <button onClick={() => handleEditClick(t)} className="p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-lg transition-all" title="Editar"><Edit2 size={16} /></button>
-                      <button onClick={() => handleDeleteTransaction(t.id)} className="p-2 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all" title="Excluir"><Trash2 size={16} /></button>
-                    </div>
+                    </td>
+                    <td className="p-8 text-center">
+                      <span className={`text-[10px] font-black tracking-widest italic ${isOverdue ? 'text-rose-500 underline underline-offset-4 decoration-rose-500/50' : 'text-indigo-400'}`}>
+                        {formatDate(t.date)}
+                      </span>
+                    </td>
+                    <td className="p-8">
+                      <span className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black text-slate-400 tracking-widest uppercase">{t.category}</span>
+                    </td>
+                    <td className="p-8 text-[10px] font-black text-slate-400 tracking-widest flex items-center gap-2 uppercase">
+                      <Building2 size={14} className="text-slate-600" />
+                      {t.bank || '---'}
+                    </td>
+                    <td className={`p-8 text-right font-black text-xl tracking-tighter ${t.type === 'receivable' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {formatCurrency(t.amount)}
+                    </td>
+                    <td className="p-8">
+                      <div className="flex items-center justify-center gap-3">
+                        <button onClick={() => handleEditClick(t)} className="p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-lg transition-all" title="Editar"><Edit2 size={16} /></button>
+                        <button onClick={() => handleDeleteTransaction(t.id)} className="p-2 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all" title="Excluir"><Trash2 size={16} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="p-20 text-center">
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] italic">Nenhum registro encontrado para os filtros aplicados</p>
                   </td>
                 </tr>
-              )
-            })}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={7} className="p-20 text-center">
-                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] italic">Nenhum registro encontrado para os filtros aplicados</p>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </motion.div>
   )

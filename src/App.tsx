@@ -749,48 +749,8 @@ function DashboardView({
       {/* Primary Intelligence Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* Main Liquidity Card */}
-        <div className="lg:col-span-8 glass-card p-10 relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-700">
-          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-600/10 blur-[100px] -mr-48 -mt-48 group-hover:bg-indigo-600/20 transition-all" />
-
-          <div className="relative z-10 flex flex-col h-full justify-between">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-slate-500 font-black tracking-[0.3em] text-[10px] uppercase italic mb-2 flex items-center gap-2">
-                  <Wallet size={14} className="text-indigo-500" /> LIQUIDEZ TOTAL DISPONÍVEL
-                </p>
-                <motion.h3
-                  key={totalBalance}
-                  initial={{ opacity: 0, filter: 'blur(10px)' }}
-                  animate={{ opacity: 1, filter: 'blur(0px)' }}
-                  className="text-7xl lg:text-8xl font-black tracking-tighter font-mono-numbers leading-none"
-                >
-                  {maskValue(formatCurrency(totalBalance))}
-                </motion.h3>
-              </div>
-              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 text-right">
-                <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Projeção p/ Fim</p>
-                <p className="text-md font-bold font-mono-numbers text-emerald-400">{maskValue(formatCurrency(projectedBalance))}</p>
-              </div>
-            </div>
-
-            <div className="mt-12 flex items-center gap-6">
-              <div className="flex -space-x-3">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="w-10 h-10 rounded-full border-2 border-black bg-slate-900 flex items-center justify-center font-black text-[10px] text-white">
-                    {['C6', 'NU', 'IT'][i]}
-                  </div>
-                ))}
-                <div className="w-10 h-10 rounded-full border-2 border-black bg-white flex items-center justify-center font-black text-[10px] text-black">+2</div>
-              </div>
-              <div className="h-0.5 w-12 bg-white/10" />
-              <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Verificado via protocolos criptografados</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Operational Result (DRE) */}
-        <div className="lg:col-span-4 glass-card p-8 flex flex-col justify-between group hover:border-emerald-500/30 transition-all duration-700">
+        {/* Operational Result (DRE) Full Width */}
+        <div className="lg:col-span-12 glass-card p-10 flex flex-col justify-between group hover:border-emerald-500/30 transition-all duration-700">
           <div className="flex justify-between items-start mb-8">
             <h5 className="font-black tracking-[0.2em] text-slate-400 uppercase text-[10px] italic flex items-center gap-3">
               <ListOrdered size={16} className="text-indigo-500" /> OPERAÇÕES LÍQUIDAS
@@ -800,31 +760,31 @@ function DashboardView({
             </div>
           </div>
 
-          <div className="space-y-8 flex-1 flex flex-col justify-center">
-            <div className="flex justify-between items-center group/item">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 flex-1">
+            <div className="flex justify-between items-center group/item p-8 bg-black/20 border border-white/5 rounded-3xl">
               <div>
-                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Recebíveis</p>
-                <p className="text-3xl font-black font-mono-numbers text-white/90">{maskValue(formatCurrency(totalReceivable))}</p>
+                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Recebíveis (Período)</p>
+                <p className="text-4xl lg:text-5xl font-black font-mono-numbers text-white/90 tracking-tighter">{maskValue(formatCurrency(totalReceivable))}</p>
               </div>
-              <ArrowUpRight size={24} className="text-emerald-500 opacity-20 group-hover/item:opacity-100 transition-opacity" />
+              <ArrowUpRight size={40} strokeWidth={1} className="text-emerald-500 opacity-20 group-hover/item:opacity-100 transition-opacity" />
             </div>
 
-            <div className="h-px w-full bg-white/5" />
-
-            <div className="flex justify-between items-center group/item">
+            <div className="flex justify-between items-center group/item p-8 bg-black/20 border border-white/5 rounded-3xl">
               <div>
-                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">Pagáveis</p>
-                <p className="text-3xl font-black font-mono-numbers text-white/90">{maskValue(formatCurrency(totalPayable))}</p>
+                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Pagáveis (Período)</p>
+                <p className="text-4xl lg:text-5xl font-black font-mono-numbers text-white/90 tracking-tighter">{maskValue(formatCurrency(totalPayable))}</p>
               </div>
-              <ArrowDownRight size={24} className="text-rose-500 opacity-20 group-hover/item:opacity-100 transition-opacity" />
+              <ArrowDownRight size={40} strokeWidth={1} className="text-rose-500 opacity-20 group-hover/item:opacity-100 transition-opacity" />
             </div>
-          </div>
 
-          <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
-            <p className="text-[10px] font-black text-slate-500 uppercase">Superávit de Caixa</p>
-            <p className={`text-2xl font-black font-mono-numbers italic transition-all ${netResult >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-              {maskValue(formatCurrency(netResult))}
-            </p>
+            <div className="flex justify-between items-center p-8 rounded-3xl border border-white/5 bg-gradient-to-br from-white/[0.02] to-transparent">
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Superávit de Caixa</p>
+                <p className={`text-4xl lg:text-5xl font-black font-mono-numbers italic tracking-tighter transition-all ${netResult >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  {maskValue(formatCurrency(netResult))}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 

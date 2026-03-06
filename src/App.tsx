@@ -72,6 +72,7 @@ const categories = [
   { id: '7', name: 'DESPESA COM TRANSPORTE', color: '#8b5cf6', type: 'payable' }, // Purple
   { id: '8', name: 'INVESTIMENTO', color: '#f43f5e', type: 'receivable' }, // Rose
   { id: '9', name: 'DESPESA COM SAÚDE', color: '#ef4444', type: 'payable' }, // Red
+  { id: '10', name: 'PATRIMÔNIO', color: '#d946ef', type: 'receivable' }, // Fuchsia
 ]
 
 const subCategoriesMap: Record<string, string[]> = {
@@ -83,7 +84,8 @@ const subCategoriesMap: Record<string, string[]> = {
   'DESPESA COM CASA': ['ÁGUA', 'LUZ', 'INTERNET', 'TERRENO', 'OUTROS'],
   'DESPESA COM TRANSPORTE': ['GASOLINA MOTO', 'GASOLINA BIZ', 'GASOLINA CARRO', 'CONSERTO DA MOTO', 'CONSERTO DA BIZ', 'DESPESA COM CARRO'],
   'INVESTIMENTO': ['RENDA FIXA', 'RENDA VARIAVEL', 'RESERVA DE EMERGENCIA'],
-  'DESPESA COM SAÚDE': ['FARMÁCIA', 'EXAME', 'HOSPITAL']
+  'DESPESA COM SAÚDE': ['FARMÁCIA', 'EXAME', 'HOSPITAL'],
+  'PATRIMÔNIO': ['IMÓVEL', 'VEÍCULO', 'APORTE', 'OUTROS BENS']
 }
 
 const banks = ["ITAÚ", "NUBANK", "COFRINHO NUBANK", "C6 BANK", "INTER", "BRADESCO", "SANTANDER", "XP", "DINHEIRO ESPÉCIE"]
@@ -123,7 +125,7 @@ interface ServiceExpense {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'fluxo' | 'margem'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'fluxo' | 'margem' | 'ativos'>('dashboard')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -423,7 +425,9 @@ function App() {
                 </button>
                 <NavItem icon={<Calendar size={20} />} label="AGENDA" />
                 <NavItem icon={<CreditCard size={20} />} label="CARTÕES" />
-                <NavItem icon={<PiggyBank size={20} />} label="ATIVOS" />
+                <button onClick={() => setActiveTab('ativos')} className="group">
+                  <NavItem icon={<PiggyBank size={20} />} label="ATIVOS" active={activeTab === 'ativos'} />
+                </button>
               </nav>
 
               <div className="pt-6 border-t border-white/5 space-y-4">
@@ -450,7 +454,7 @@ function App() {
                   animate={{ opacity: 1, x: 0 }}
                   className="text-4xl lg:text-5xl font-black tracking-tighter uppercase italic gradient-text"
                 >
-                  {activeTab === 'dashboard' ? 'Insight' : 'Fluxo'} <span className="text-indigo-500">{activeTab === 'dashboard' ? 'Geral' : 'de Dados'}</span>
+                  {activeTab === 'dashboard' ? 'Insight' : activeTab === 'ativos' ? 'Central' : 'Fluxo'} <span className="text-indigo-500">{activeTab === 'dashboard' ? 'Geral' : activeTab === 'ativos' ? 'de Ativos' : 'de Dados'}</span>
                 </motion.h2>
                 <p className="text-slate-500 font-bold tracking-[0.4em] text-[9px] mt-2 uppercase opacity-40">SISTEMA INTELIGENTE DE MODELAGEM FINANCEIRA</p>
               </div>
@@ -482,6 +486,16 @@ function App() {
                 setSelectedMonth={setSelectedMonth}
                 selectedYear={selectedYear}
                 setSelectedYear={setSelectedYear}
+              />
+            ) : activeTab === 'ativos' ? (
+              <AtivosView
+                transactions={transactions}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+                setIsModalOpen={setIsModalOpen}
+                setFormData={setFormData}
+                setEditingId={setEditingId}
+                handleDeleteTransaction={handleDeleteTransaction}
               />
             ) : (
               <FluxoView
@@ -1459,6 +1473,159 @@ function TransactionModal({ setIsModalOpen, editingId, setEditingId, formData, s
       </motion.div>
     </div>
   )
+}
+
+function AtivosView({ transactions, formatCurrency, formatDate, setIsModalOpen, setFormData, setEditingId, handleDeleteTransaction }: any) {
+  const patrimonioTransactions = transactions.filter((t: any) => t.category === 'PATRIMÔNIO');
+  const investimentosTransactions = transactions.filter((t: any) => t.category === 'INVESTIMENTO');
+
+  const totalPatrimonio = patrimonioTransactions.reduce((acc: number, t: any) => acc + (t.amount || 0), 0);
+  const totalInvestimentos = investimentosTransactions.reduce((acc: number, t: any) => acc + (t.amount || 0), 0);
+  const totalGeral = totalPatrimonio + totalInvestimentos;
+
+  const handleOpenPatrimonio = () => {
+    setFormData({
+      title: 'MEU NOVO BEM',
+      category: 'PATRIMÔNIO',
+      sub_category: 'IMÓVEL',
+      amount: '',
+      type: 'receivable',
+      date: new Date().toISOString().split('T')[0],
+      competency_date: new Date().toISOString().split('T')[0],
+      bank: 'DINHEIRO ESPÉCIE',
+      payment_method: 'DINHEIRO',
+      notes: '',
+      payment_date: new Date().toISOString().split('T')[0],
+      status: 'completed',
+      installments: '1',
+      entry_type: 'single'
+    });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenInvestimento = () => {
+    setFormData({
+      title: 'NOVO APORTE',
+      category: 'INVESTIMENTO',
+      sub_category: 'RENDA FIXA',
+      amount: '',
+      type: 'receivable',
+      date: new Date().toISOString().split('T')[0],
+      competency_date: new Date().toISOString().split('T')[0],
+      bank: 'XP',
+      payment_method: 'PIX',
+      notes: '',
+      payment_date: new Date().toISOString().split('T')[0],
+      status: 'completed',
+      installments: '1',
+      entry_type: 'single'
+    });
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+      {/* Cards de Resumo */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="glass-card p-8 border-t-4 border-t-fuchsia-500 bg-fuchsia-500/[0.02] flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-fuchsia-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-fuchsia-500/20 transition-all" />
+          <div className="relative z-10 flex justify-between items-start mb-6">
+            <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Patrimônio Declarado</h5>
+            <div className="w-10 h-10 rounded-xl bg-fuchsia-500/10 flex items-center justify-center"><Building2 size={16} className="text-fuchsia-500" /></div>
+          </div>
+          <div className="relative z-10">
+            <p className="text-4xl font-black font-mono-numbers text-fuchsia-400 tracking-tighter">{formatCurrency(totalPatrimonio)}</p>
+          </div>
+        </div>
+
+        <div className="glass-card p-8 border-t-4 border-t-rose-500 bg-rose-500/[0.02] flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-rose-500/20 transition-all" />
+          <div className="relative z-10 flex justify-between items-start mb-6">
+            <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Saldo de Investimentos</h5>
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center"><TrendingUp size={16} className="text-rose-500" /></div>
+          </div>
+          <div className="relative z-10">
+            <p className="text-4xl font-black font-mono-numbers text-rose-400 tracking-tighter">{formatCurrency(totalInvestimentos)}</p>
+          </div>
+        </div>
+
+        <div className="glass-card p-8 border-t-4 border-t-indigo-500 bg-indigo-500/[0.05] flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-indigo-500/20 transition-all" />
+          <div className="relative z-10 flex justify-between items-start mb-6">
+            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Acúmulo (Net Worth)</h5>
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center"><PiggyBank size={16} className="text-indigo-400" /></div>
+          </div>
+          <div className="relative z-10">
+            <p className="text-4xl font-black font-mono-numbers text-white tracking-tighter">{formatCurrency(totalGeral)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Patrimônio List */}
+        <div className="glass-card p-8 flex flex-col min-h-[500px]">
+          <div className="flex justify-between items-center mb-8">
+            <h4 className="font-black text-[12px] uppercase text-fuchsia-400 tracking-widest flex items-center gap-2"><Building2 size={16} /> Bens Patrimoniais</h4>
+            <button onClick={handleOpenPatrimonio} className="flex items-center gap-2 text-[9px] font-black text-white bg-fuchsia-600 hover:bg-fuchsia-500 px-4 py-2 rounded-xl transition-colors uppercase tracking-widest">
+              <Plus size={14} /> Registrar Bem
+            </button>
+          </div>
+          <div className="flex-1 space-y-4">
+            {patrimonioTransactions.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-center p-8">
+                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest italic">Nenhum patrimônio registrado ainda.</p>
+              </div>
+            ) : (
+              patrimonioTransactions.map((t: any) => (
+                <div key={t.id} className="flex items-center justify-between p-5 bg-white/[0.03] border border-white/5 rounded-2xl hover:border-fuchsia-500/30 transition-colors group">
+                  <div>
+                    <p className="font-black text-sm text-white uppercase">{t.title}</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">{t.sub_category} • {formatDate(t.date)}</p>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <p className="font-black font-mono-numbers text-fuchsia-400 text-lg">{formatCurrency(t.amount)}</p>
+                    <button onClick={() => handleDeleteTransaction(t.id)} className="opacity-0 group-hover:opacity-100 p-2 bg-rose-500/10 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Investimentos List */}
+        <div className="glass-card p-8 flex flex-col min-h-[500px]">
+          <div className="flex justify-between items-center mb-8">
+            <h4 className="font-black text-[12px] uppercase text-rose-400 tracking-widest flex items-center gap-2"><TrendingUp size={16} /> Aportes / Investimentos</h4>
+            <button onClick={handleOpenInvestimento} className="flex items-center gap-2 text-[9px] font-black text-white bg-rose-600 hover:bg-rose-500 px-4 py-2 rounded-xl transition-colors uppercase tracking-widest">
+              <Plus size={14} /> Novo Aporte
+            </button>
+          </div>
+          <div className="flex-1 space-y-4">
+            {investimentosTransactions.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-center p-8">
+                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest italic">Nenhum investimento registrado.</p>
+              </div>
+            ) : (
+              investimentosTransactions.map((t: any) => (
+                <div key={t.id} className="flex items-center justify-between p-5 bg-white/[0.03] border border-white/5 rounded-2xl hover:border-rose-500/30 transition-colors group">
+                  <div>
+                    <p className="font-black text-sm text-white uppercase">{t.title}</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">{t.bank} • {t.sub_category}</p>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <p className="font-black font-mono-numbers text-rose-400 text-lg">{formatCurrency(t.amount)}</p>
+                    <button onClick={() => handleDeleteTransaction(t.id)} className="opacity-0 group-hover:opacity-100 p-2 bg-rose-500/10 text-rose-500 rounded-lg hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
 }
 
 function NavItem({ icon, label, active = false }: any) {

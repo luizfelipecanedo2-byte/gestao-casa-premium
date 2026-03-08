@@ -104,6 +104,7 @@ interface Transaction {
   payment_method?: string
   status?: 'pending' | 'completed'
   notes?: string
+  created_at?: string
 }
 
 interface ExpenseItem {
@@ -1089,8 +1090,16 @@ function FluxoView({
     document.body.removeChild(link);
   };
 
-  // Pega os 3 últimos lançamentos reais (baseado na data mais recente)
-  const recentEntries = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 3);
+  // Pega os 3 útimos que entraram fisicamente no sistema (ID decrescente ou data de criação)
+  const recentEntries = [...transactions]
+    .sort((a, b) => {
+      // Tenta ordenar pelo ID ou created_at se disponível para garantir que os "últimos lançados" apareçam
+      if (a.created_at && b.created_at) {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      return b.id.localeCompare(a.id); // Fallback para ID
+    })
+    .slice(0, 3);
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">

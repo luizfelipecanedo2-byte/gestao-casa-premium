@@ -1089,8 +1089,42 @@ function FluxoView({
     document.body.removeChild(link);
   };
 
+  // Pega os 3 últimos lançamentos reais (baseado na data mais recente)
+  const recentEntries = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 3);
+
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+
+      {/* QUICK MEMORY: ÚLTIMOS LANÇAMENTOS */}
+      <div className="space-y-4">
+        <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] ml-2 flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> MEMÓRIA DE LANÇAMENTOS (ÚLTIMOS 3)
+        </h5>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {recentEntries.map((t: any) => (
+            <div
+              key={t.id}
+              className="glass-card p-4 border-l-2 border-indigo-500/30 hover:bg-white/[0.04] transition-all cursor-help group"
+              onClick={() => handleEditClick(t)}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{t.category}</span>
+                <span className="text-[8px] font-black text-indigo-400 font-mono italic">{formatDate(t.date)}</span>
+              </div>
+              <p className="text-[11px] font-black text-white uppercase truncate group-hover:text-indigo-300 transition-colors">{t.title}</p>
+              <p className={`text-md font-black font-mono-numbers mt-1 ${t.type === 'receivable' ? 'text-emerald-400' : 'text-slate-300'}`}>
+                {formatCurrency(t.amount)}
+              </p>
+            </div>
+          ))}
+          {recentEntries.length === 0 && (
+            <div className="col-span-3 glass-card p-6 text-center text-[10px] font-black text-slate-700 uppercase tracking-widest border-dashed">
+              Aguardando os primeiros dados para gerar histórico...
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-8 space-y-6 shadow-2xl backdrop-blur-xl">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
           <div className="md:col-span-3 space-y-3">

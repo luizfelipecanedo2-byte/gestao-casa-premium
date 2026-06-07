@@ -126,7 +126,7 @@ interface ServiceExpense {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'fluxo' | 'margem' | 'ativos' | 'agenda' | 'cartoes'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'fluxo' | 'ativos' | 'agenda' | 'cartoes'>('dashboard')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -424,9 +424,6 @@ function App() {
                 <button onClick={() => setActiveTab('fluxo')} className="group">
                   <NavItem icon={<TrendingUp size={20} />} label="OPERAÇÕES" active={activeTab === 'fluxo'} />
                 </button>
-                <button onClick={() => setActiveTab('margem')} className="group">
-                  <NavItem icon={<Briefcase size={20} />} label="MARGEM" active={activeTab === 'margem'} />
-                </button>
                 <button onClick={() => setActiveTab('agenda')} className="group">
                   <NavItem icon={<Calendar size={20} />} label="AGENDA" active={activeTab === 'agenda'} />
                 </button>
@@ -466,8 +463,6 @@ function App() {
                     ? 'Insight'
                     : activeTab === 'ativos'
                     ? 'Central'
-                    : activeTab === 'margem'
-                    ? 'Projetos'
                     : activeTab === 'agenda'
                     ? 'Agenda'
                     : activeTab === 'cartoes'
@@ -477,8 +472,6 @@ function App() {
                       ? 'Geral'
                       : activeTab === 'ativos'
                       ? 'de Ativos'
-                      : activeTab === 'margem'
-                      ? 'de Margens'
                       : activeTab === 'agenda'
                       ? 'Mensal'
                       : activeTab === 'cartoes'
@@ -525,12 +518,6 @@ function App() {
                 setFormData={setFormData}
                 setEditingId={setEditingId}
                 handleDeleteTransaction={handleDeleteTransaction}
-              />
-            ) : activeTab === 'margem' ? (
-              <MargemView
-                serviceExpenses={serviceExpenses}
-                fetchServiceExpenses={fetchServiceExpenses}
-                formatCurrency={formatCurrency}
               />
             ) : activeTab === 'agenda' ? (
               <AgendaView
@@ -2267,330 +2254,7 @@ function AgendaView({
   );
 }
 
-function MargemView({ serviceExpenses, fetchServiceExpenses, formatCurrency }: any) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  
-  const [clientName, setClientName] = useState('');
-  const [environment, setEnvironment] = useState('');
-  const [serviceValue, setServiceValue] = useState('');
-  const [items, setItems] = useState<any[]>([]);
 
-  // Item form inputs
-  const [itemDescription, setItemDescription] = useState('');
-  const [itemUnit, setItemUnit] = useState('un');
-  const [itemQty, setItemQty] = useState('1');
-  const [itemUnitValue, setItemUnitValue] = useState('');
-
-  const totalFaturamento = serviceExpenses.reduce((acc: number, s: any) => acc + (s.service_value || 0), 0);
-  const totalCustos = serviceExpenses.reduce((acc: number, s: any) => acc + (s.spent_value || 0), 0);
-  const totalLucro = totalFaturamento - totalCustos;
-  const margemMedia = totalFaturamento > 0 ? (totalLucro / totalFaturamento) * 100 : 0;
-
-  const handleOpenNew = () => {
-    setEditingId(null);
-    setClientName('');
-    setEnvironment('');
-    setServiceValue('');
-    setItems([]);
-    resetItemForm();
-    setIsModalOpen(true);
-  };
-
-  const resetItemForm = () => {
-    setItemDescription('');
-    setItemUnit('un');
-    setItemQty('1');
-    setItemUnitValue('');
-  };
-
-  const handleAddItem = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!itemDescription || !itemQty || !itemUnitValue) return;
-
-    const qty = Number(itemQty);
-    const unitVal = Number(itemUnitValue);
-    const total = qty * unitVal;
-
-    const newItem = {
-      description: itemDescription,
-      unit: itemUnit,
-      quantity: qty,
-      unitValue: unitVal,
-      totalValue: total
-    };
-
-    setItems([...items, newItem]);
-    resetItemForm();
-  };
-
-  const handleRemoveItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
-  };
-
-  const handleEditClick = (s: any) => {
-    setEditingId(s.id);
-    setClientName(s.client_name);
-    setEnvironment(s.environment);
-    setServiceValue(s.service_value?.toString() || '');
-    setItems(s.items || []);
-    resetItemForm();
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este serviço?')) return;
-    try {
-      const { error } = await supabase.from('service_expenses').delete().eq('id', id);
-      if (error) throw error;
-      fetchServiceExpenses();
-    } catch (e) {
-      console.error(e);
-      alert('Erro ao excluir.');
-    }
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const spentValue = items.reduce((acc: number, item: any) => acc + (item.totalValue || 0), 0);
-      const payload = {
-        client_name: clientName,
-        environment: environment,
-        service_value: Number(serviceValue) || 0,
-        spent_value: spentValue,
-        items: items
-      };
-
-      if (editingId) {
-        const { error } = await supabase.from('service_expenses').update(payload).eq('id', editingId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('service_expenses').insert([payload]);
-        if (error) throw error;
-      }
-
-      setIsModalOpen(false);
-      fetchServiceExpenses();
-    } catch (e) {
-      console.error(e);
-      alert('Erro ao salvar serviço.');
-    }
-  };
-
-  const itemsTotalCost = items.reduce((acc: number, item: any) => acc + (item.totalValue || 0), 0);
-
-  return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="glass-card p-6 border-t-4 border-t-emerald-500 bg-emerald-500/[0.02] flex flex-col justify-between">
-          <div>
-            <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Faturamento de Serviços</h5>
-            <p className="text-2xl font-black font-mono-numbers text-emerald-400">{formatCurrency(totalFaturamento)}</p>
-          </div>
-        </div>
-        <div className="glass-card p-6 border-t-4 border-t-rose-500 bg-rose-500/[0.02] flex flex-col justify-between">
-          <div>
-            <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Custo Total de Materiais</h5>
-            <p className="text-2xl font-black font-mono-numbers text-rose-400">{formatCurrency(totalCustos)}</p>
-          </div>
-        </div>
-        <div className="glass-card p-6 border-t-4 border-t-indigo-500 bg-indigo-500/[0.02] flex flex-col justify-between">
-          <div>
-            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Lucro Líquido Estimado</h5>
-            <p className={`text-2xl font-black font-mono-numbers ${totalLucro >= 0 ? 'text-white' : 'text-rose-500'}`}>
-              {formatCurrency(totalLucro)}
-            </p>
-          </div>
-        </div>
-        <div className="glass-card p-6 border-t-4 border-t-fuchsia-500 bg-fuchsia-500/[0.02] flex flex-col justify-between">
-          <div>
-            <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Margem Média de Lucro</h5>
-            <p className="text-2xl font-black font-mono-numbers text-fuchsia-400">{margemMedia.toFixed(2)}%</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Lista de Projetos */}
-      <div className="glass-card p-8 flex flex-col min-h-[500px]">
-        <div className="flex justify-between items-center mb-8">
-          <h4 className="font-black text-[12px] uppercase text-indigo-400 tracking-widest flex items-center gap-2">
-            <Briefcase size={16} /> Relatório de Serviços & Margens
-          </h4>
-          <button onClick={handleOpenNew} className="flex items-center gap-2 text-[10px] font-black text-white bg-indigo-600 hover:bg-indigo-500 px-6 py-3 rounded-xl transition-colors uppercase tracking-widest">
-            <Plus size={14} strokeWidth={3} /> Cadastrar Serviço
-          </button>
-        </div>
-
-        <div className="w-full overflow-x-auto">
-          <table className="w-full text-left min-w-[800px]">
-            <thead>
-              <tr className="text-slate-600 text-[9px] font-black uppercase tracking-[0.2em] border-b border-white/5 bg-white/[0.02]">
-                <th className="p-6">CLIENTE</th>
-                <th className="p-6">AMBIENTE</th>
-                <th className="p-6 text-right">VALOR DO SERVIÇO</th>
-                <th className="p-6 text-right">CUSTO DE MATERIAIS</th>
-                <th className="p-6 text-right">LUCRO LÍQUIDO</th>
-                <th className="p-6 text-center">MARGEM</th>
-                <th className="p-6 text-center">AÇÕES</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5 font-black text-sm">
-              {serviceExpenses.map((s: any) => {
-                const profit = (s.service_value || 0) - (s.spent_value || 0);
-                const margin = s.service_value > 0 ? (profit / s.service_value) * 100 : 0;
-                return (
-                  <tr key={s.id} className="group hover:bg-white/[0.02] transition-colors">
-                    <td className="p-6 uppercase text-white/90">{s.client_name}</td>
-                    <td className="p-6 uppercase text-slate-400">{s.environment}</td>
-                    <td className="p-6 text-right font-mono-numbers text-emerald-400">{formatCurrency(s.service_value)}</td>
-                    <td className="p-6 text-right font-mono-numbers text-rose-400">{formatCurrency(s.spent_value)}</td>
-                    <td className={`p-6 text-right font-mono-numbers ${profit >= 0 ? 'text-white' : 'text-rose-500'}`}>
-                      {formatCurrency(profit)}
-                    </td>
-                    <td className="p-6 text-center">
-                      <span className={`px-2.5 py-1 rounded text-[10px] ${margin >= 40 ? 'bg-emerald-500/10 text-emerald-500' : margin >= 20 ? 'bg-indigo-500/10 text-indigo-400' : 'bg-rose-500/10 text-rose-500'}`}>
-                        {margin.toFixed(1)}%
-                      </span>
-                    </td>
-                    <td className="p-6">
-                      <div className="flex items-center justify-center gap-3">
-                        <button onClick={() => handleEditClick(s)} className="p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-lg transition-all" title="Editar / Materiais"><Edit2 size={14} /></button>
-                        <button onClick={() => handleDelete(s.id)} className="p-2 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all" title="Excluir"><Trash2 size={14} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {serviceExpenses.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="p-20 text-center">
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] italic">Nenhum serviço registrado</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Modal de Cadastro/Edição de Serviço */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-black/95 backdrop-blur-md" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 30 }} className="relative w-full max-w-4xl bg-[#0b1222] border border-white/10 rounded-[3.5rem] shadow-2xl p-12 overflow-y-auto max-h-[90vh] custom-scroll scrollbar-hide font-sans text-white">
-              <div className="flex justify-between items-center mb-8">
-                <div>
-                  <h3 className="text-3xl font-extrabold tracking-tighter uppercase italic">{editingId ? 'Editar Serviço / Projeto' : 'Novo Serviço Premium'}</h3>
-                  <p className="text-[10px] text-indigo-400 font-black tracking-[0.5em] uppercase mt-1 italic">Service Cost & Margin Protocol</p>
-                </div>
-                <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white/5 rounded-full text-slate-400 transition-colors"><X size={28} /></button>
-              </div>
-
-              <form onSubmit={handleSave} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <label className="text-[10px] font-black text-slate-500 tracking-widest mb-3 block uppercase italic">Nome do Cliente</label>
-                    <input required type="text" placeholder="CLIENTE" className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-sm focus:border-indigo-500 focus:outline-none uppercase" value={clientName} onChange={(e) => setClientName(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-slate-500 tracking-widest mb-3 block uppercase italic">Ambiente / Detalhes</label>
-                    <input required type="text" placeholder="COZINHA PLANEJADA, SUÍTE..." className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-sm focus:border-indigo-500 focus:outline-none uppercase" value={environment} onChange={(e) => setEnvironment(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-indigo-400 tracking-widest mb-3 block uppercase italic">Valor do Contrato (R$)</label>
-                    <input required type="number" placeholder="0.00" step="0.01" className="w-full bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-5 font-black text-sm text-indigo-100 focus:border-indigo-500 focus:outline-none" value={serviceValue} onChange={(e) => setServiceValue(e.target.value)} />
-                  </div>
-                </div>
-
-                {/* Bloco de Gerenciamento de Custos/Materiais */}
-                <div className="border-t border-white/5 pt-8 space-y-6">
-                  <div>
-                    <h4 className="font-extrabold text-md uppercase italic tracking-wider text-indigo-400">Composição de Custos / Materiais</h4>
-                    <p className="text-[9px] text-slate-500 font-bold uppercase mt-1 tracking-widest">Lance os materiais, frete, ajudantes ou taxas associadas a este serviço.</p>
-                  </div>
-
-                  {/* Form para adicionar item */}
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-slate-950/40 p-5 border border-white/5 rounded-3xl items-end">
-                    <div className="md:col-span-5 space-y-2">
-                      <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Descrição do Item</label>
-                      <input type="text" placeholder="CHAPA MDF, PUXADORES, FRETE..." className="w-full bg-slate-950 border border-white/5 rounded-xl p-3 font-black text-xs focus:border-indigo-500 focus:outline-none uppercase" value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                      <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Unidade</label>
-                      <select className="w-full bg-slate-950 border border-white/5 rounded-xl p-3 font-black text-xs focus:border-indigo-500 focus:outline-none uppercase cursor-pointer" value={itemUnit} onChange={(e) => setItemUnit(e.target.value)}>
-                        <option value="un">UN</option>
-                        <option value="m">METRO</option>
-                        <option value="m2">M²</option>
-                        <option value="cx">CAIXA</option>
-                        <option value="pç">PEÇA</option>
-                        <option value="serv">SERVIÇO</option>
-                      </select>
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                      <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Qtd</label>
-                      <input type="number" step="any" min="0.01" className="w-full bg-slate-950 border border-white/5 rounded-xl p-3 font-black text-xs focus:border-indigo-500 focus:outline-none" value={itemQty} onChange={(e) => setItemQty(e.target.value)} />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                      <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Valor Unitário</label>
-                      <input type="number" step="0.01" placeholder="R$ 0,00" className="w-full bg-slate-950 border border-white/5 rounded-xl p-3 font-black text-xs focus:border-indigo-500 focus:outline-none" value={itemUnitValue} onChange={(e) => setItemUnitValue(e.target.value)} />
-                    </div>
-                    <div className="md:col-span-1">
-                      <button type="button" onClick={handleAddItem} className="w-full p-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white font-black flex items-center justify-center transition-colors">
-                        <Plus size={16} strokeWidth={3} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Lista de itens adicionados */}
-                  <div className="max-h-[250px] overflow-y-auto pr-2 scrollbar-hide space-y-3">
-                    {items.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
-                        <div className="flex items-center gap-4">
-                          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-[9px] font-black text-indigo-400 uppercase">
-                            {item.unit}
-                          </div>
-                          <div>
-                            <p className="text-xs font-black uppercase text-white/90">{item.description}</p>
-                            <p className="text-[9px] font-bold text-slate-500 uppercase">{item.quantity} x {formatCurrency(item.unitValue)}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-6">
-                          <span className="font-mono-numbers text-xs font-black text-rose-400">{formatCurrency(item.totalValue)}</span>
-                          <button type="button" onClick={() => handleRemoveItem(index)} className="p-2 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-colors"><Trash2 size={12} /></button>
-                        </div>
-                      </div>
-                    ))}
-                    {items.length === 0 && (
-                      <div className="p-8 text-center text-[10px] font-black text-slate-700 uppercase tracking-widest border border-dashed border-white/5 rounded-2xl">
-                        Nenhum custo lançado para este serviço.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
-                  <div>
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block italic">Custo Total Acumulado</span>
-                    <span className="text-2xl font-black font-mono-numbers text-rose-400">{formatCurrency(itemsTotalCost)}</span>
-                  </div>
-                  <div className="flex gap-4 w-full md:w-auto">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 md:flex-none px-8 py-5 border border-white/10 hover:bg-white/5 rounded-2xl transition-colors font-black text-xs uppercase tracking-widest">Cancelar</button>
-                    <button type="submit" className="flex-1 md:flex-none px-12 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl transition-colors font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2">
-                      <Check size={16} strokeWidth={3} /> {editingId ? 'Salvar Alterações' : 'Cadastrar Serviço'}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
 
 function NavItem({ icon, label, active = false }: any) {
   return (

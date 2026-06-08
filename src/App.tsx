@@ -613,6 +613,66 @@ function DashboardView({
   setSelectedYear
 }: any) {
 
+  const [startDate, setStartDate] = useState(() => {
+    const saved = localStorage.getItem('daily_budget_start_date');
+    if (saved) return saved;
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    return `${yyyy}-${mm}-01`;
+  });
+
+  const [dailyLimit, setDailyLimit] = useState(() => {
+    const saved = localStorage.getItem('daily_budget_limit');
+    return saved ? Number(saved) : 30;
+  });
+
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() => {
+    const saved = localStorage.getItem('daily_budget_categories');
+    return saved ? JSON.parse(saved) : ['DESPESAS COM ALIMENTAÇÃO', 'DESPESA LAZER', 'DESPESA PESSOAL', 'DESPESA COM TRANSPORTE', 'DESPESA COM SAÚDE'];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('daily_budget_start_date', startDate);
+  }, [startDate]);
+
+  useEffect(() => {
+    localStorage.setItem('daily_budget_limit', String(dailyLimit));
+  }, [dailyLimit]);
+
+  useEffect(() => {
+    localStorage.setItem('daily_budget_categories', JSON.stringify(selectedCategories));
+  }, [selectedCategories]);
+
+  // Daily budget calculations
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const startDateObj = new Date(startDate + 'T00:00:00');
+  const endDateObj = new Date(todayDateStr + 'T00:00:00');
+  const diffTime = endDateObj.getTime() - startDateObj.getTime();
+  const diffDays = Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1);
+
+  const dailyTransactions = transactions.filter((t: any) => {
+    return t.type === 'payable' && 
+           t.date >= startDate && 
+           t.date <= todayDateStr && 
+           selectedCategories.includes(t.category);
+  });
+
+  const spentBeforeToday = dailyTransactions
+    .filter((t: any) => t.date < todayDateStr)
+    .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+
+  const daysBeforeToday = Math.max(0, diffDays - 1);
+  const budgetBeforeToday = daysBeforeToday * dailyLimit;
+  const rolloverFromYesterday = budgetBeforeToday - spentBeforeToday;
+  const budgetToday = dailyLimit + rolloverFromYesterday;
+
+  const spentToday = dailyTransactions
+    .filter((t: any) => t.date === todayDateStr)
+    .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+
+  const remainingToday = budgetToday - spentToday;
+
   const months = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
     "Jul", "Ago", "Set", "Out", "Nov", "Dez"
@@ -847,6 +907,196 @@ function DashboardView({
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Daily Rollover Budget Challenge */}
+        <div className="lg:col-span-12 glass-card p-8 bg-gradient-to-br from-indigo-950/20 to-black border border-indigo-500/20 rounded-[2.5rem] relative overflow-hidden group hover:border-indigo-500/40 transition-all duration-500">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+          
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8 relative z-10">
+            <div>
+              <h5 className="font-black tracking-[0.2em] text-indigo-400 uppercase text-[10px] italic flex items-center gap-3">
+                <Target size={16} className="text-indigo-500" /> CONTROLE DE ORÇAMENTO DIÁRIO CUMULATIVO
+              </h5>
+              <h3 className="text-2xl font-black uppercase tracking-tight mt-2 text-white">Meta de {formatCurrency(dailyLimit)} por Dia</h3>
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Acumula sobras e desconta excessos automaticamente no dia seguinte</p>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-4 bg-white/5 p-3 rounded-2xl border border-white/5">
+              <div className="flex flex-col">
+                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Início da Meta</label>
+                <input 
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="bg-black/50 border border-white/10 rounded-xl px-3 py-1.5 text-[10px] font-bold text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Meta Diária</label>
+                <div className="flex items-center bg-black/50 border border-white/10 rounded-xl px-2">
+                  <span className="text-[9px] font-bold text-slate-500 mr-1">R$</span>
+                  <input 
+                    type="number"
+                    value={dailyLimit}
+                    onChange={(e) => setDailyLimit(Number(e.target.value))}
+                    className="w-12 bg-transparent py-1.5 text-[10px] font-bold text-white focus:outline-none text-center"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col">
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Dias Decorridos</span>
+                <span className="text-xs font-black text-white px-3 py-1.5 bg-black/30 border border-white/5 rounded-xl text-center">
+                  {diffDays} {diffDays === 1 ? 'dia' : 'dias'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Core Calculation Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 relative z-10">
+            {/* 1. Limite Acumulado Até Ontem */}
+            <div className="p-5 bg-black/20 border border-white/5 rounded-2xl">
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-wider mb-2">Meta Histórica (Até Ontem)</p>
+              <div className="flex justify-between items-baseline">
+                <span className="text-lg font-bold text-white/90">{formatCurrency(budgetBeforeToday)}</span>
+                <span className="text-[8px] text-slate-500 uppercase font-black">Meta Total</span>
+              </div>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-1">Gasto: {formatCurrency(spentBeforeToday)}</p>
+            </div>
+
+            {/* 2. Rollover do Dia Anterior */}
+            <div className="p-5 bg-black/20 border border-white/5 rounded-2xl">
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-wider mb-2">Saldo Carregado (Rollover)</p>
+              <div className="flex justify-between items-baseline">
+                <span className={`text-lg font-bold ${rolloverFromYesterday >= 0 ? 'text-emerald-400' : 'text-rose-500'}`}>
+                  {rolloverFromYesterday >= 0 ? '+' : ''}{formatCurrency(rolloverFromYesterday)}
+                </span>
+                <span className="text-[8px] text-slate-500 uppercase font-black">De ontem</span>
+              </div>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-1">
+                {rolloverFromYesterday >= 0 ? 'Economia acumulada' : 'Déficit acumulado'}
+              </p>
+            </div>
+
+            {/* 3. Disponível para Hoje */}
+            <div className="p-5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/10 rounded-full blur-xl" />
+              <p className="text-[8px] font-black text-indigo-400 uppercase tracking-wider mb-2">Disponível para Hoje</p>
+              <div className="flex justify-between items-baseline">
+                <span className={`text-xl font-black font-mono-numbers ${budgetToday >= 0 ? 'text-indigo-400' : 'text-rose-500 animate-pulse'}`}>
+                  {formatCurrency(budgetToday)}
+                </span>
+                <span className="text-[8px] text-indigo-400 uppercase font-black">Total hoje</span>
+              </div>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-1">Meta do dia + saldo acumulado</p>
+            </div>
+
+            {/* 4. Gasto Hoje */}
+            <div className="p-5 bg-black/20 border border-white/5 rounded-2xl">
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-wider mb-2">Gasto Hoje</p>
+              <div className="flex justify-between items-baseline">
+                <span className="text-lg font-bold text-white/90">{formatCurrency(spentToday)}</span>
+                <span className="text-[8px] text-slate-500 uppercase font-black">Lançado hoje</span>
+              </div>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-1">Hoje: {new Date().toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}</p>
+            </div>
+          </div>
+
+          {/* Progress Bar & Advisor */}
+          <div className="space-y-4 mb-6 relative z-10">
+            <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider">
+              <span className="text-[9px] text-slate-500">Uso do Orçamento de Hoje</span>
+              <span className={remainingToday >= 0 ? 'text-emerald-400' : 'text-rose-500'}>
+                {remainingToday >= 0 
+                  ? `${formatCurrency(remainingToday)} restantes` 
+                  : `Meta estourada em ${formatCurrency(Math.abs(remainingToday))}`}
+              </span>
+            </div>
+
+            <div className="h-4 w-full bg-white/5 rounded-full overflow-hidden p-0.5 relative">
+              {budgetToday > 0 ? (
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min((spentToday / budgetToday) * 100, 100)}%` }}
+                  className={`h-full rounded-full transition-all ${
+                    spentToday > budgetToday 
+                      ? 'bg-rose-500' 
+                      : (spentToday / budgetToday) > 0.8 
+                        ? 'bg-amber-500' 
+                        : 'bg-gradient-to-r from-indigo-500 to-emerald-500'
+                  }`}
+                />
+              ) : (
+                <div className="w-full h-full bg-rose-600 rounded-full animate-pulse" />
+              )}
+            </div>
+
+            {/* Status Advice Alert */}
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+              <div className={`w-2 h-2 rounded-full ${
+                budgetToday <= 0 || spentToday > budgetToday 
+                  ? 'bg-rose-500 animate-ping' 
+                  : (spentToday / budgetToday) > 0.8 
+                    ? 'bg-amber-500 animate-pulse' 
+                    : 'bg-emerald-500 animate-pulse'
+              }`} />
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                {budgetToday <= 0 
+                  ? `Atenção: O dia começou com saldo negativo (${formatCurrency(budgetToday)}). Evite novos gastos hoje para amortizar o saldo devedor.` 
+                  : spentToday > budgetToday 
+                    ? `Meta estourada! Você ultrapassou o orçamento de hoje por ${formatCurrency(spentToday - budgetToday)}. Esse excesso será descontado do limite de amanhã.` 
+                    : spentToday === 0 
+                      ? `Nenhum gasto registrado hoje! Você tem ${formatCurrency(budgetToday)} inteiros para usar.` 
+                      : `Consumo moderado: Você já usou ${((spentToday / budgetToday) * 100).toFixed(0)}% do orçamento diário. Restam ${formatCurrency(remainingToday)}.`}
+              </p>
+            </div>
+          </div>
+
+          {/* Collapsible Categories Filter */}
+          <div className="border-t border-white/5 pt-6 relative z-10">
+            <details className="group/details">
+              <summary className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] cursor-pointer hover:text-white transition-colors select-none list-none flex items-center gap-2">
+                <span className="transition-transform group-open/details:rotate-90">▶</span> SELECIONAR CATEGORIAS DA META DIÁRIA
+              </summary>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-2">
+                {categories.filter(c => c.type === 'payable').map(c => {
+                  const isChecked = selectedCategories.includes(c.name);
+                  return (
+                    <label 
+                      key={c.id} 
+                      className={`flex items-center gap-2.5 p-3 rounded-xl border text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
+                        isChecked 
+                          ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-300' 
+                          : 'bg-black/30 border-white/5 text-slate-500 hover:border-white/10 hover:text-slate-300'
+                      }`}
+                    >
+                      <input 
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCategories([...selectedCategories, c.name]);
+                          } else {
+                            setSelectedCategories(selectedCategories.filter(name => name !== c.name));
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${
+                        isChecked ? 'border-indigo-400 bg-indigo-500 text-black' : 'border-slate-700 bg-black/50'
+                      }`}>
+                        {isChecked && '✓'}
+                      </span>
+                      {c.name.replace('DESPESA COM ', '').replace('DESPESAS COM ', '')}
+                    </label>
+                  );
+                })}
+              </div>
+            </details>
           </div>
         </div>
 

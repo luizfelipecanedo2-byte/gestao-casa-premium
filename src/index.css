@@ -61,3 +61,67 @@ body {
 ::-webkit-scrollbar-thumb {
   @apply bg-white/10 rounded-full hover:bg-white/20;
 }
+
+/* Print Styles */
+@media print {
+  /* Hide unnecessary elements */
+  aside,
+  header,
+  .no-print,
+  .no-print *,
+  button,
+  .actions-column,
+  th.no-print,
+  td.no-print,
+  tr.no-print {
+    display: none !important;
+  }
+
+  /* Reset layout for print */
+  body, html {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Remove dark glass styles for printing */
+  .glass-card {
+    background: transparent !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    color: black !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+  }
+
+  p, span, h1, h2, h3, h4, h5, h6, th, td {
+    color: black !important;
+  }
+
+  /* Ensure table elements are fully visible and readable */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+  }
+
+  th, td {
+    border-bottom: 1px solid #cbd5e1 !important;
+    padding: 8px 12px !important;
+    color: black !important;
+  }
+
+  /* Background Ambient Glow */
+  div[class*="blur-"] {
+    display: none !important;
+  }
+}

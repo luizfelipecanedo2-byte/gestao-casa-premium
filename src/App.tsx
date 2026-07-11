@@ -23,7 +23,8 @@ import {
   Download,
   Home,
   Briefcase,
-  Layers
+  Layers,
+  Printer
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -1297,6 +1298,7 @@ function FluxoView({
 }: any) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRecentModalOpen, setIsRecentModalOpen] = useState(false);
 
   const months = [
     { val: '0', label: 'JANEIRO' }, { val: '1', label: 'FEVEREIRO' }, { val: '2', label: 'MARÇO' },
@@ -1400,12 +1402,27 @@ function FluxoView({
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+      {/* Print-only Header */}
+      <div className="hidden print:block border-b border-slate-200 pb-4 mb-6">
+        <h1 className="text-3xl font-black uppercase text-slate-900">Relatório de Movimentações Financeiras</h1>
+        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">
+          Gestão Casa Premium • Gerado em {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}
+        </p>
+      </div>
 
       {/* QUICK MEMORY: ÚLTIMOS LANÇAMENTOS */}
-      <div className="space-y-4">
-        <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] ml-2 flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> MEMÓRIA DE LANÇAMENTOS (ÚLTIMOS 3)
-        </h5>
+      <div className="space-y-4 no-print">
+        <div className="flex justify-between items-center px-2">
+          <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> MEMÓRIA DE LANÇAMENTOS (ÚLTIMOS 3)
+          </h5>
+          <button
+            onClick={() => setIsRecentModalOpen(true)}
+            className="text-[9px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest flex items-center gap-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-xl transition-all"
+          >
+            <ListOrdered size={12} /> Ver Últimas Lançadas
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {recentEntries.map((t: any) => (
             <div
@@ -1431,7 +1448,7 @@ function FluxoView({
         </div>
       </div>
 
-      <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-8 space-y-6 shadow-2xl backdrop-blur-xl">
+      <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-8 space-y-6 shadow-2xl backdrop-blur-xl no-print">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
           <div className="md:col-span-3 space-y-3">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Busca Rápida</label>
@@ -1509,7 +1526,7 @@ function FluxoView({
       </div>
 
       {/* Dinamic Summary Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <div className="glass-card p-6 border-l-4 border-l-emerald-500 bg-emerald-500/[0.02]">
           <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Entradas Filtradas</p>
           <p className="text-2xl font-black font-mono-numbers text-emerald-400">{formatCurrency(totals.in)}</p>
@@ -1526,7 +1543,7 @@ function FluxoView({
         </div>
         <button
           onClick={exportToCSV}
-          className="glass-card group flex items-center justify-center gap-4 hover:bg-white/[0.05] transition-all"
+          className="glass-card group flex items-center justify-center gap-4 hover:bg-white/[0.05] transition-all no-print"
         >
           <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-indigo-500 transition-colors">
             <Download size={18} className="group-hover:text-white" />
@@ -1534,6 +1551,18 @@ function FluxoView({
           <div className="text-left">
             <p className="text-[10px] font-black text-white uppercase italic">Exportar Dados</p>
             <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Relatório CSV</p>
+          </div>
+        </button>
+        <button
+          onClick={() => window.print()}
+          className="glass-card group flex items-center justify-center gap-4 hover:bg-white/[0.05] transition-all no-print"
+        >
+          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-indigo-500 transition-colors">
+            <Printer size={18} className="group-hover:text-white" />
+          </div>
+          <div className="text-left">
+            <p className="text-[10px] font-black text-white uppercase italic">Imprimir Relatório</p>
+            <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">PDF / Papel</p>
           </div>
         </button>
       </div>
@@ -1559,7 +1588,7 @@ function FluxoView({
           <table className="w-full text-left min-w-[1000px]">
             <thead>
               <tr className="text-slate-600 text-[9px] font-black uppercase tracking-[0.2em] border-b border-white/5 bg-white/[0.02]">
-                <th className="p-8 w-16 text-center">
+                <th className="p-8 w-16 text-center no-print">
                   <input
                     type="checkbox"
                     onChange={handleSelectAll}
@@ -1574,7 +1603,7 @@ function FluxoView({
                 <th className="p-8">CLASSIFICAÇÃO</th>
                 <th className="p-8">INSTITUIÇÃO</th>
                 <th className="p-8 text-right">MONTANTE</th>
-                <th className="p-8 text-center text-[10px]">AÇÕES</th>
+                <th className="p-8 text-center text-[10px] no-print">AÇÕES</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -1587,7 +1616,7 @@ function FluxoView({
 
                 return (
                   <tr key={t.id} className={`group hover:bg-white/[0.03] transition-colors font-black ${isOverdue ? 'bg-rose-500/[0.02]' : ''} ${isSelected ? 'bg-indigo-500/[0.05]' : ''}`}>
-                    <td className="p-8 text-center">
+                    <td className="p-8 text-center no-print">
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -1632,7 +1661,7 @@ function FluxoView({
                     <td className={`p-8 text-right font-black text-xl tracking-tighter ${t.type === 'receivable' ? 'text-emerald-500' : 'text-rose-500'}`}>
                       {formatCurrency(t.amount)}
                     </td>
-                    <td className="p-8">
+                    <td className="p-8 no-print">
                       <div className="flex items-center justify-center gap-3">
                         <button onClick={() => handleEditClick(t)} className="p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-lg transition-all" title="Editar"><Edit2 size={16} /></button>
                         <button onClick={() => handleDeleteTransaction(t.id)} className="p-2 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all" title="Excluir"><Trash2 size={16} /></button>
@@ -1652,6 +1681,106 @@ function FluxoView({
           </table>
         </div>
       </div>
+
+      {/* Modal de Últimos Lançamentos */}
+      <AnimatePresence>
+        {isRecentModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsRecentModalOpen(false)}
+              className="absolute inset-0 bg-black/90 backdrop-blur-md"
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 30 }}
+              className="relative w-full max-w-4xl bg-[#0b1222] border border-white/10 rounded-[3.5rem] shadow-2xl p-8 lg:p-12 overflow-y-auto max-h-[90vh] custom-scroll scrollbar-hide font-sans"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h3 className="text-2xl font-black uppercase italic tracking-tighter text-white">ÚLTIMOS LANÇAMENTOS</h3>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Histórico das últimas 20 operações criadas</p>
+                </div>
+                <button
+                  onClick={() => setIsRecentModalOpen(false)}
+                  className="p-3 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-4 overflow-y-auto max-h-[55vh] pr-2 custom-scroll">
+                {[...transactions]
+                  .sort((a: any, b: any) => {
+                    if (a.created_at && b.created_at) {
+                      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    }
+                    return b.id.localeCompare(a.id);
+                  })
+                  .slice(0, 20).length === 0 ? (
+                  <p className="text-center text-slate-500 font-bold text-xs py-8 uppercase">Nenhum lançamento encontrado.</p>
+                ) : (
+                  [...transactions]
+                    .sort((a: any, b: any) => {
+                      if (a.created_at && b.created_at) {
+                        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                      }
+                      return b.id.localeCompare(a.id);
+                    })
+                    .slice(0, 20).map((t: any) => (
+                      <div
+                        key={t.id}
+                        className="glass-card p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border border-white/5 hover:border-white/10 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${t.type === 'receivable' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                            {t.type === 'receivable' ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm text-white uppercase tracking-tight">{t.title}</h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider">{t.category}</span>
+                              <span className="text-[8px] text-slate-600 font-bold">•</span>
+                              <span className="text-[8px] font-bold text-indigo-400 italic">Vence em: {formatDate(t.date)}</span>
+                              {t.created_at && (
+                                <>
+                                  <span className="text-[8px] text-slate-600 font-bold">•</span>
+                                  <span className="text-[8px] font-bold text-slate-500">Criado em: {new Date(t.created_at).toLocaleDateString('pt-BR')}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between w-full md:w-auto gap-6 border-t md:border-t-0 border-white/5 pt-3 md:pt-0">
+                          <span className={`font-black text-lg tracking-tighter ${t.type === 'receivable' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                            {formatCurrency(t.amount)}
+                          </span>
+                          
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setIsRecentModalOpen(false);
+                                handleEditClick(t);
+                              }}
+                              className="px-3 py-1.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-xl text-[9px] font-black uppercase transition-all"
+                            >
+                              Editar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

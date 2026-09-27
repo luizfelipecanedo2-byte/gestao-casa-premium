@@ -24,7 +24,10 @@ import {
   Home,
   Briefcase,
   Layers,
-  Printer
+  Printer,
+  Share2,
+  Sparkles,
+  Copy
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -135,7 +138,18 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [serviceExpenses, setServiceExpenses] = useState<ServiceExpense[]>([])
-  const [isPrivate, setIsPrivate] = useState(false)
+  const [isPrivate, setIsPrivate] = useState(() => localStorage.getItem('isPrivate') === 'true')
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
+
+  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage({ text, type })
+    setTimeout(() => setToastMessage(null), 3500)
+  }
+
+  useEffect(() => {
+    localStorage.setItem('isPrivate', String(isPrivate))
+  }, [isPrivate])
+
   const [timeRange, setTimeRange] = useState<'month' | 'year'>('month')
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
@@ -301,9 +315,10 @@ function App() {
       setEditingId(null)
       resetForm()
       fetchTransactions()
+      showToast(editingId ? 'Lançamento atualizado com sucesso!' : 'Lançamento salvo com sucesso!', 'success')
     } catch (error) {
       console.error('Erro ao salvar transação:', error)
-      alert('Erro ao salvar.')
+      showToast('Erro ao salvar transação.', 'error')
     }
   }
 
@@ -316,8 +331,10 @@ function App() {
         .eq('id', id)
       if (error) throw error
       fetchTransactions()
+      showToast('Lançamento excluído com sucesso!', 'success')
     } catch (error) {
       console.error('Erro ao excluir:', error)
+      showToast('Erro ao excluir lançamento.', 'error')
     }
   }
 
@@ -409,12 +426,12 @@ function App() {
           <aside className="w-24 lg:w-72 p-6 flex flex-col h-screen sticky top-0">
             <div className="glass-card h-full flex flex-col p-6 items-center lg:items-stretch">
               <div className="flex items-center gap-3 px-2 mb-12">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
-                  <Wallet className="text-black" size={20} />
+                <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                  <Wallet className="text-white" size={20} />
                 </div>
                 <div className="hidden lg:block">
-                  <h1 className="font-black text-sm tracking-tighter uppercase leading-none">CASA IQ</h1>
-                  <p className="text-[8px] text-slate-500 font-bold tracking-[0.3em] uppercase mt-1">Versão 2.0</p>
+                  <h1 className="font-black text-sm tracking-tighter uppercase leading-none bg-gradient-to-r from-white via-indigo-100 to-indigo-300 bg-clip-text text-transparent">FELIPE & MARA</h1>
+                  <p className="text-[8px] text-indigo-400 font-bold tracking-[0.3em] uppercase mt-1">FINANÇAS DO CASAL</p>
                 </div>
               </div>
 
@@ -437,15 +454,18 @@ function App() {
               </nav>
 
               <div className="pt-6 border-t border-white/5 space-y-4">
-                <div className="hidden lg:block p-4 bg-white/5 rounded-2xl border border-white/5">
-                  <p className="text-[8px] font-black text-slate-500 uppercase mb-2">Segurança</p>
+                <div className="hidden lg:block p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10">
+                  <p className="text-[8px] font-black text-indigo-400 uppercase mb-2">Orçamento Unificado</p>
                   <p className="text-[10px] font-bold text-emerald-400 flex items-center gap-2">
-                    <Check size={12} /> PROTOCOLO ATIVO
+                    <Check size={12} /> CONTA CONJUNTA
                   </p>
                 </div>
                 <div className="flex items-center gap-3 px-2">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center font-black text-xs">LF</div>
-                  <div className="hidden lg:block truncate text-[10px] font-bold text-slate-400 uppercase">Felipe Mara</div>
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center font-black text-xs text-indigo-300">F&M</div>
+                  <div className="hidden lg:block truncate">
+                    <p className="text-[10px] font-bold text-white uppercase leading-tight">Felipe & Mara</p>
+                    <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider">Gestão do Lar</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -482,12 +502,22 @@ function App() {
                 <p className="text-slate-500 font-bold tracking-[0.4em] text-[9px] mt-2 uppercase opacity-40">SISTEMA INTELIGENTE DE MODELAGEM FINANCEIRA</p>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/5 rounded-full">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Sincronização Ativa</span>
-                </div>
-                <button className="w-12 h-12 glass-card flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all"><Bell size={18} /></button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsPrivate(!isPrivate)}
+                  className="px-4 py-2.5 glass-card flex items-center gap-2 text-slate-400 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
+                  title={isPrivate ? "Mostrar Valores" : "Ocultar Valores (Privacidade)"}
+                >
+                  {isPrivate ? <Eye size={16} className="text-indigo-400" /> : <EyeOff size={16} />}
+                  <span className="hidden sm:inline">{isPrivate ? "Valores Ocultos" : "Ocultar"}</span>
+                </button>
+                <button
+                  onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
+                  className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
+                >
+                  <Plus size={16} strokeWidth={3} />
+                  <span>Novo Lançamento</span>
+                </button>
               </div>
             </header>
 
@@ -568,11 +598,42 @@ function App() {
                 setFilterStatus={setFilterStatus}
                 banks={banks}
                 onRefresh={fetchTransactions}
+                isPrivate={isPrivate}
               />
             )}
           </main>
         </div>
       )}
+
+      {/* Floating Action Button (FAB) for Mobile Quick Add */}
+      <motion.button
+        whileHover={{ scale: 1.08 }}
+        whileTap={{ scale: 0.93 }}
+        onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
+        className="fixed bottom-6 right-6 z-40 md:hidden w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-2xl shadow-indigo-600/50 border border-white/20 active:scale-95"
+        title="Novo Lançamento Rápido"
+      >
+        <Plus size={28} strokeWidth={2.5} />
+      </motion.button>
+
+      {/* Modern Floating Toast */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl border backdrop-blur-xl shadow-2xl flex items-center gap-3 text-xs font-black uppercase tracking-wider ${
+              toastMessage.type === 'success'
+                ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-300'
+                : 'bg-rose-950/90 border-rose-500/40 text-rose-300'
+            }`}
+          >
+            {toastMessage.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+            <span>{toastMessage.text}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isModalOpen && (
@@ -742,6 +803,56 @@ function DashboardView({
 
   const netResult = totalReceivable - totalPayable;
 
+  const felipeSalary = filteredTransactions
+    .filter((t: any) => t.type === 'receivable' && (t.sub_category === 'SALÁRIO FELIPE' || t.title?.toUpperCase().includes('FELIPE')))
+    .reduce((acc: number, t: any) => acc + (t.amount || 0), 0);
+
+  const maraSalary = filteredTransactions
+    .filter((t: any) => t.type === 'receivable' && (t.sub_category === 'SALÁRIO MARA' || t.title?.toUpperCase().includes('MARA')))
+    .reduce((acc: number, t: any) => acc + (t.amount || 0), 0);
+
+  const otherIncome = Math.max(0, totalReceivable - (felipeSalary + maraSalary));
+
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const generateWhatsAppSummary = () => {
+    const monthName = months[selectedMonth] || 'Mês';
+    const periodStr = timeRange === 'year' ? `${selectedYear}` : `${monthName}/${selectedYear}`;
+    const savingsPct = totalReceivable > 0 ? Math.round((netResult / totalReceivable) * 100) : 0;
+    
+    let msg = `🏡 *FINANÇAS DA CASA - FELIPE & MARA*\n`;
+    msg += `📅 *Fechamento: ${periodStr}*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `💵 *Renda Familiar Conjunta:* ${formatCurrency(totalReceivable)}\n`;
+    if (felipeSalary > 0 || maraSalary > 0) {
+      if (felipeSalary > 0) msg += `  • Salário Felipe: ${formatCurrency(felipeSalary)}\n`;
+      if (maraSalary > 0) msg += `  • Salário Mara: ${formatCurrency(maraSalary)}\n`;
+      if (otherIncome > 0) msg += `  • Entradas Extras: ${formatCurrency(otherIncome)}\n`;
+    }
+    msg += `💳 *Despesas da Casa:* ${formatCurrency(totalPayable)}\n`;
+    msg += `✨ *Sobra Livre da Família:* ${formatCurrency(netResult)} ${savingsPct > 0 ? `(${savingsPct}% guardado)` : ''}\n`;
+    
+    if (categoryData.length > 0) {
+      msg += `\n📊 *Principais Gastos:*\n`;
+      categoryData.slice(0, 3).forEach((item: any) => {
+        msg += ` • ${item.name}: ${formatCurrency(item.value)}\n`;
+      });
+    }
+    
+    if (creditCardLimitUsed > 0) {
+      msg += `\n💳 *Faturas dos Cartões:* ${formatCurrency(creditCardLimitUsed)}\n`;
+    }
+    
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    if (netResult >= 0) {
+      msg += `🚀 *Parabéns casal! Fechamos o período no azul e economizando juntos!* ❤️👏`;
+    } else {
+      msg += `⚠️ *Atenção casal: As despesas superaram a renda no período. Vamos organizar!*`;
+    }
+    return msg;
+  };
+
   // 2. Projeção de Saldo (Previsibilidade)
   // Considera o saldo atual + o que ainda não foi pago/recebido no mês selecionado
   const pendingIn = filteredTransactions
@@ -861,6 +972,14 @@ function DashboardView({
             ))}
           </select>
           <button
+            onClick={() => setIsShareModalOpen(true)}
+            className="px-4 h-12 glass-card flex items-center gap-2 text-emerald-400 hover:text-white hover:border-emerald-500/40 transition-all text-xs font-black uppercase tracking-wider active:scale-95"
+            title="Compartilhar Resumo no WhatsApp"
+          >
+            <Share2 size={16} />
+            <span className="hidden sm:inline">WhatsApp</span>
+          </button>
+          <button
             onClick={() => setIsPrivate(!isPrivate)}
             className="w-12 h-12 glass-card flex items-center justify-center text-slate-500 hover:text-white transition-all"
           >
@@ -873,11 +992,16 @@ function DashboardView({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         {/* Operational Result (DRE) Full Width */}
-        <div className="lg:col-span-12 glass-card p-10 flex flex-col justify-between group hover:border-emerald-500/30 transition-all duration-700">
+        <div className="lg:col-span-12 glass-card p-10 flex flex-col justify-between group hover:border-indigo-500/30 transition-all duration-700">
           <div className="flex justify-between items-start mb-8">
-            <h5 className="font-black tracking-[0.2em] text-slate-400 uppercase text-[10px] italic flex items-center gap-3">
-              <ListOrdered size={16} className="text-indigo-500" /> OPERAÇÕES LÍQUIDAS
-            </h5>
+            <div>
+              <h5 className="font-black tracking-[0.2em] text-slate-400 uppercase text-[10px] italic flex items-center gap-3">
+                <ListOrdered size={16} className="text-indigo-500" /> RESUMO MENSAL DA FAMÍLIA (ORÇAMENTO UNIFICADO)
+              </h5>
+              <p className="text-[10px] text-indigo-400 font-bold tracking-wider mt-1 uppercase">
+                Felipe & Mara — Juntos Construindo o Futuro
+              </p>
+            </div>
             <div className={`p-2 rounded-lg ${netResult >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
               <TrendingUp size={16} />
             </div>
@@ -885,27 +1009,65 @@ function DashboardView({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 flex-1">
             <div className="flex justify-between items-center group/item p-8 bg-black/20 border border-white/5 rounded-3xl">
-              <div>
-                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Recebíveis (Período)</p>
+              <div className="w-full">
+                <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" /> Renda Familiar Conjunta
+                </p>
                 <p className="text-4xl lg:text-5xl font-black font-mono-numbers text-white/90 tracking-tighter">{maskValue(formatCurrency(totalReceivable))}</p>
+                
+                {(felipeSalary > 0 || maraSalary > 0) && (
+                  <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-white/5">
+                    {felipeSalary > 0 && (
+                      <span className="text-[9px] px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 rounded-lg font-bold">
+                        👨 Felipe: {maskValue(formatCurrency(felipeSalary))}
+                      </span>
+                    )}
+                    {maraSalary > 0 && (
+                      <span className="text-[9px] px-2.5 py-1 bg-pink-500/10 border border-pink-500/20 text-pink-300 rounded-lg font-bold">
+                        👩 Mara: {maskValue(formatCurrency(maraSalary))}
+                      </span>
+                    )}
+                    {otherIncome > 0 && (
+                      <span className="text-[9px] px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 rounded-lg font-bold">
+                        ✨ Extras: {maskValue(formatCurrency(otherIncome))}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <ArrowUpRight size={40} strokeWidth={1} className="text-emerald-500 opacity-20 group-hover/item:opacity-100 transition-opacity" />
             </div>
 
             <div className="flex justify-between items-center group/item p-8 bg-black/20 border border-white/5 rounded-3xl">
               <div>
-                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Pagáveis (Período)</p>
+                <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-rose-400" /> Despesas da Casa
+                </p>
                 <p className="text-4xl lg:text-5xl font-black font-mono-numbers text-white/90 tracking-tighter">{maskValue(formatCurrency(totalPayable))}</p>
+                {totalReceivable > 0 && (
+                  <p className="text-[9px] text-slate-500 font-bold uppercase mt-3">
+                    Consome {((totalPayable / totalReceivable) * 100).toFixed(0)}% da renda da família
+                  </p>
+                )}
               </div>
               <ArrowDownRight size={40} strokeWidth={1} className="text-rose-500 opacity-20 group-hover/item:opacity-100 transition-opacity" />
             </div>
 
-            <div className="flex justify-between items-center p-8 rounded-3xl border border-white/5 bg-gradient-to-br from-white/[0.02] to-transparent">
+            <div className="flex justify-between items-center p-8 rounded-3xl border border-white/5 bg-gradient-to-br from-indigo-950/20 via-black to-emerald-950/20">
               <div>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Superávit de Caixa</p>
-                <p className={`text-4xl lg:text-5xl font-black font-mono-numbers italic tracking-tighter transition-all ${netResult >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <Sparkles size={14} className="text-indigo-400" /> Sobra Livre da Família
+                </p>
+                <p className={`text-4xl lg:text-5xl font-black font-mono-numbers italic tracking-tighter transition-all ${netResult >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {maskValue(formatCurrency(netResult))}
                 </p>
+                {totalReceivable > 0 && (
+                  <p className="text-[9px] text-slate-400 font-bold uppercase mt-3">
+                    {netResult >= 0 
+                      ? `✨ ${((netResult / totalReceivable) * 100).toFixed(0)}% guardado para investimentos e sonhos`
+                      : '⚠️ Despesas ultrapassaram a renda'}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1270,6 +1432,77 @@ function DashboardView({
         </div>
 
       </div>
+
+      {/* WhatsApp Share Modal */}
+      <AnimatePresence>
+        {isShareModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsShareModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-[#0e131f] border border-white/10 rounded-3xl shadow-2xl p-6 z-10 space-y-6"
+            >
+              <div className="flex justify-between items-center pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <Share2 size={16} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-sm uppercase tracking-wider text-white">Resumo para WhatsApp</h3>
+                    <p className="text-[9px] text-slate-400 uppercase">Felipe & Mara — {months[selectedMonth]} {selectedYear}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsShareModalOpen(false)}
+                  className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="bg-black/50 border border-white/5 rounded-2xl p-4 font-mono text-xs text-slate-300 whitespace-pre-wrap max-h-64 overflow-y-auto custom-scroll">
+                {generateWhatsAppSummary()}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = generateWhatsAppSummary();
+                    navigator.clipboard.writeText(text);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2500);
+                  }}
+                  className="flex-1 py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                  {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                  <span>{copied ? 'Copiado!' : 'Copiar Texto'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = generateWhatsAppSummary();
+                    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+                  }}
+                  className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
+                >
+                  <Share2 size={16} />
+                  <span>Abrir no WhatsApp</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
@@ -1294,8 +1527,10 @@ function FluxoView({
   filterStatus,
   setFilterStatus,
   banks,
-  onRefresh
+  onRefresh,
+  isPrivate
 }: any) {
+  const maskValue = (val: string) => isPrivate ? '••••••' : val;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecentModalOpen, setIsRecentModalOpen] = useState(false);
@@ -1659,7 +1894,7 @@ function FluxoView({
                       {t.bank || '---'}
                     </td>
                     <td className={`p-8 text-right font-black text-xl tracking-tighter ${t.type === 'receivable' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {formatCurrency(t.amount)}
+                      {maskValue(formatCurrency(t.amount))}
                     </td>
                     <td className="p-8 no-print">
                       <div className="flex items-center justify-center gap-3">
@@ -1795,9 +2030,57 @@ function TransactionModal({ setIsModalOpen, editingId, setEditingId, formData, s
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setIsModalOpen(false); setEditingId(null); }} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 30 }} className="relative w-full max-w-4xl bg-[#0b1222] border border-white/10 rounded-[3.5rem] shadow-2xl overflow-y-auto max-h-[90vh] p-12 custom-scroll scrollbar-hide font-sans">
-        <div className="flex justify-between items-center mb-10">
-          <div><h3 className="text-4xl font-extrabold tracking-tighter uppercase italic">{editingId ? 'Editar Lançamento' : 'Novo Lançamento Premium'}</h3><p className="text-[10px] text-indigo-400 font-black tracking-[0.5em] uppercase mt-1 leading-none italic">Intelligence Data Entry Protocol</p></div>
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h3 className="text-3xl lg:text-4xl font-extrabold tracking-tighter uppercase italic">
+              {editingId ? 'Editar Lançamento' : 'Lançamento da Casa — Felipe & Mara'}
+            </h3>
+            <p className="text-[10px] text-indigo-400 font-black tracking-[0.4em] uppercase mt-1 leading-none italic">
+              Orçamento Familiar Unificado
+            </p>
+          </div>
           <button onClick={() => { setIsModalOpen(false); setEditingId(null); }} className="p-3 hover:bg-white/5 rounded-full text-slate-400 transition-colors"><X size={32} /></button>
+        </div>
+
+        {/* Quick Presets for Casa Felipe & Mara */}
+        <div className="mb-8 p-6 bg-gradient-to-r from-indigo-950/40 via-purple-950/20 to-black border border-indigo-500/20 rounded-3xl">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles size={16} className="text-indigo-400" />
+            <span className="text-[11px] font-black uppercase tracking-widest text-indigo-300">
+              Lançamento Rápido da Casa (Preenchimento em 1 Clique)
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2.5">
+            {[
+              { label: '🛒 Supermercado', cat: 'DESPESAS COM ALIMENTAÇÃO', sub: 'MERCADO', type: 'payable', title: 'SUPERMERCADO' },
+              { label: '🥖 Padaria', cat: 'DESPESAS COM ALIMENTAÇÃO', sub: 'PADARIA', type: 'payable', title: 'PADARIA' },
+              { label: '⛽ Combustível', cat: 'DESPESA COM TRANSPORTE', sub: 'GASOLINA CARRO', type: 'payable', title: 'COMBUSTÍVEL' },
+              { label: '💡 Conta de Luz', cat: 'DESPESA COM CASA', sub: 'LUZ', type: 'payable', title: 'CONTA DE LUZ' },
+              { label: '💧 Conta de Água', cat: 'DESPESA COM CASA', sub: 'ÁGUA', type: 'payable', title: 'CONTA DE ÁGUA' },
+              { label: '🌐 Internet', cat: 'DESPESA COM CASA', sub: 'INTERNET', type: 'payable', title: 'INTERNET' },
+              { label: '💊 Farmácia', cat: 'DESPESA COM SAÚDE', sub: 'FARMÁCIA', type: 'payable', title: 'FARMÁCIA' },
+              { label: '🍕 Delivery / Lazer', cat: 'DESPESA LAZER', sub: 'LANCHONETE', type: 'payable', title: 'DELIVERY / LANCHE' },
+              { label: '💼 Salário Felipe', cat: 'RECEITA SALÁRIO', sub: 'SALÁRIO FELIPE', type: 'receivable', title: 'SALÁRIO FELIPE' },
+              { label: '💼 Salário Mara', cat: 'RECEITA SALÁRIO', sub: 'SALÁRIO MARA', type: 'receivable', title: 'SALÁRIO MARA' },
+            ].map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => {
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    category: preset.cat,
+                    sub_category: preset.sub,
+                    type: preset.type,
+                    title: preset.title
+                  }));
+                }}
+                className="px-3.5 py-2 bg-white/5 hover:bg-indigo-600/30 border border-white/10 hover:border-indigo-500/50 rounded-xl text-xs font-bold text-slate-200 hover:text-white transition-all flex items-center gap-1.5 active:scale-95 shadow-sm cursor-pointer"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <form onSubmit={handleSaveTransaction} className="space-y-10">

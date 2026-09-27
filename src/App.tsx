@@ -717,6 +717,8 @@ function App() {
                 banks={banks}
                 onRefresh={fetchTransactions}
                 isPrivate={isPrivate}
+                selectedYear={selectedYear}
+                setSelectedYear={setSelectedYear}
               />
             )}
           </main>
@@ -1674,7 +1676,9 @@ function FluxoView({
   setFilterStatus,
   banks,
   onRefresh,
-  isPrivate
+  isPrivate,
+  selectedYear,
+  setSelectedYear
 }: any) {
   const maskValue = (val: string) => isPrivate ? '••••••' : val;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -1688,12 +1692,47 @@ function FluxoView({
     { val: '9', label: 'OUTUBRO' }, { val: '10', label: 'NOVEMBRO' }, { val: '11', label: 'DEZEMBRO' }
   ];
 
+  const targetYear = selectedYear || new Date().getFullYear();
+  const now = new Date();
+  const currentMonthIdx = now.getMonth();
+
   const filtered = transactions.filter((t: any) => {
     const matchesText = t.title?.toLowerCase().includes(filterText.toLowerCase()) ||
       t.sub_category?.toLowerCase().includes(filterText.toLowerCase());
 
     const d = new Date(t.date + 'T12:00:00');
-    const matchesMonth = filterMonth === 'todos' || d.getMonth() === parseInt(filterMonth);
+    const transYear = d.getFullYear();
+    const transMonth = d.getMonth();
+
+    let matchesMonth = true;
+    if (filterMonth === 'todos') {
+      matchesMonth = true;
+    } else if (filterMonth === 'anual') {
+      // Todo o ano selecionado (Janeiro a Dezembro)
+      matchesMonth = transYear === targetYear;
+    } else if (filterMonth === 'ate-fim-ano') {
+      // Do mês atual em diante até o fim do ano
+      if (targetYear === now.getFullYear()) {
+        matchesMonth = transYear === targetYear && transMonth >= currentMonthIdx;
+      } else if (targetYear > now.getFullYear()) {
+        matchesMonth = transYear === targetYear;
+      } else {
+        matchesMonth = false;
+      }
+    } else if (filterMonth === 'inicio-ate-hoje') {
+      // Do início do ano até o mês atual
+      if (targetYear === now.getFullYear()) {
+        matchesMonth = transYear === targetYear && transMonth <= currentMonthIdx;
+      } else if (targetYear < now.getFullYear()) {
+        matchesMonth = transYear === targetYear;
+      } else {
+        matchesMonth = false;
+      }
+    } else {
+      // Mês específico dentro do ano selecionado
+      matchesMonth = transMonth === parseInt(filterMonth) && transYear === targetYear;
+    }
+
     const matchesBank = filterBank === 'todos' || t.bank === filterBank;
     const matchesType = filterType === 'todos' || t.type === filterType;
     const matchesStatus = filterStatus === 'todos' || t.status === filterStatus;
@@ -1872,14 +1911,35 @@ function FluxoView({
           </div>
 
           <div className="md:col-span-2 space-y-3">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 italic">Mês</label>
+            <div className="flex items-center justify-between ml-1">
+              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest italic">
+                Mês / Período
+              </label>
+              {setSelectedYear && (
+                <select
+                  value={targetYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="bg-transparent text-[9px] font-black text-indigo-300 hover:text-white uppercase tracking-wider cursor-pointer border-none focus:outline-none"
+                  title="Alterar Ano"
+                >
+                  {[2024, 2025, 2026, 2027, 2028].map(y => (
+                    <option key={y} value={y} className="bg-slate-900 text-white font-black">{y}</option>
+                  ))}
+                </select>
+              )}
+            </div>
             <select
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
               className="w-full bg-slate-950/50 border border-white/10 rounded-2xl py-4 px-6 font-black text-[10px] focus:outline-none focus:border-indigo-500 uppercase appearance-none cursor-pointer text-slate-300"
             >
-              <option value="todos">TODOS</option>
-              {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+              <option value="todos">TODOS (HISTÓRICO COMPLETO)</option>
+              <option value="anual">ANUAL (ANO {targetYear} INTEIRO)</option>
+              <option value="ate-fim-ano">ATÉ O FINAL DO ANO ({targetYear}) ⏳</option>
+              <option value="inicio-ate-hoje">DO INÍCIO DO ANO ATÉ HOJE</option>
+              <optgroup label={`MESES DE ${targetYear}`}>
+                {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+              </optgroup>
             </select>
           </div>
 

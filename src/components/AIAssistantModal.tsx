@@ -505,6 +505,21 @@ export function AIAssistantModal({
               </div>
             </div>
 
+            {parsedResult.cycleNote ? (
+              <div className="p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="text-indigo-300 font-bold flex items-center gap-1.5">
+                  <span>💳</span> {parsedResult.cycleNote}
+                </span>
+                <span className="text-[10px] font-mono text-emerald-400 font-black px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                  Fatura: {parsedResult.date.split('-').reverse().join('/')}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
+                <span>Data do Lançamento: {parsedResult.date.split('-').reverse().join('/')}</span>
+              </div>
+            )}
+
             <div className="flex gap-3 flex-col sm:flex-row">
               <button
                 type="button"

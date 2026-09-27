@@ -62,7 +62,7 @@ import {
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { AIAssistantModal } from './components/AIAssistantModal'
-import { type ParsedTransaction } from './lib/aiAssistant'
+import { type ParsedTransaction, calculateCreditCardInvoiceDates } from './lib/aiAssistant'
 
 const chartData = [
   { name: 'Jan', income: 12000, expenses: 8000 },
@@ -165,14 +165,19 @@ function App() {
 
   const handleAIConfirmTransaction = async (parsed: ParsedTransaction) => {
     try {
+      const { paymentDate, competencyDate } = calculateCreditCardInvoiceDates(
+        parsed.competency_date || parsed.date,
+        parsed.bank,
+        parsed.payment_method
+      )
       const payload = {
         title: parsed.title,
         category: parsed.category,
         sub_category: parsed.sub_category,
         amount: parsed.amount,
         type: parsed.type,
-        date: parsed.date,
-        competency_date: parsed.date,
+        date: paymentDate,
+        competency_date: competencyDate,
         bank: parsed.bank,
         payment_method: parsed.payment_method,
         notes: parsed.notes,
@@ -192,14 +197,19 @@ function App() {
   const handleAIOpenInForm = (parsed: ParsedTransaction) => {
     setIsAIModalOpen(false)
     setEditingId(null)
+    const { paymentDate, competencyDate } = calculateCreditCardInvoiceDates(
+      parsed.competency_date || parsed.date,
+      parsed.bank,
+      parsed.payment_method
+    )
     setFormData({
       title: parsed.title,
       category: parsed.category,
       sub_category: parsed.sub_category,
       amount: String(parsed.amount),
       type: parsed.type,
-      date: parsed.date,
-      competency_date: parsed.date,
+      date: paymentDate,
+      competency_date: competencyDate,
       bank: parsed.bank,
       payment_method: parsed.payment_method,
       notes: parsed.notes,
@@ -2479,7 +2489,20 @@ function TransactionModal({ setIsModalOpen, editingId, setEditingId, formData, s
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic">Forma de Movimentação</label>
-                  <select className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-[10px] focus:border-indigo-500 focus:outline-none uppercase appearance-none cursor-pointer text-white" value={formData.payment_method} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}>
+                  <select
+                    className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-[10px] focus:border-indigo-500 focus:outline-none uppercase appearance-none cursor-pointer text-white"
+                    value={formData.payment_method}
+                    onChange={(e) => {
+                      const newMethod = e.target.value;
+                      const isCredit = newMethod === 'CARTÃO DE CRÉDITO' || ['C6 BANK', 'NUBANK'].includes(formData.bank.toUpperCase());
+                      if (isCredit) {
+                        const { paymentDate } = calculateCreditCardInvoiceDates(formData.competency_date, formData.bank, newMethod);
+                        setFormData({ ...formData, payment_method: newMethod, date: paymentDate, status: 'pending' });
+                      } else {
+                        setFormData({ ...formData, payment_method: newMethod });
+                      }
+                    }}
+                  >
                     {paymentMethods.map(method => <option key={method} value={method}>{method}</option>)}
                   </select>
                 </div>
@@ -2491,7 +2514,20 @@ function TransactionModal({ setIsModalOpen, editingId, setEditingId, formData, s
                   </label>
                   <div className="relative">
                     <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-700" size={18} />
-                    <select className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 pl-12 font-black text-xs focus:border-indigo-500 focus:outline-none uppercase appearance-none cursor-pointer" value={formData.bank} onChange={(e) => setFormData({ ...formData, bank: e.target.value })}>
+                    <select
+                      className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 pl-12 font-black text-xs focus:border-indigo-500 focus:outline-none uppercase appearance-none cursor-pointer"
+                      value={formData.bank}
+                      onChange={(e) => {
+                        const newBank = e.target.value;
+                        const isCredit = formData.payment_method === 'CARTÃO DE CRÉDITO' || ['C6 BANK', 'NUBANK'].includes(newBank.toUpperCase());
+                        if (isCredit) {
+                          const { paymentDate } = calculateCreditCardInvoiceDates(formData.competency_date, newBank, formData.payment_method);
+                          setFormData({ ...formData, bank: newBank, date: paymentDate });
+                        } else {
+                          setFormData({ ...formData, bank: newBank });
+                        }
+                      }}
+                    >
                       {banks.map(b => <option key={b} value={b} className="bg-slate-900 uppercase">{b}</option>)}
                     </select>
                   </div>
@@ -2501,12 +2537,46 @@ function TransactionModal({ setIsModalOpen, editingId, setEditingId, formData, s
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic">Compra feito no dia :</label>
-                  <input required type="date" className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-xs focus:border-indigo-500 focus:outline-none" value={formData.competency_date} onChange={(e) => setFormData({ ...formData, competency_date: e.target.value })} />
+                  <input
+                    required
+                    type="date"
+                    className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 font-black text-xs focus:border-indigo-500 focus:outline-none"
+                    value={formData.competency_date}
+                    onChange={(e) => {
+                      const newCompDate = e.target.value;
+                      const isCredit = formData.payment_method === 'CARTÃO DE CRÉDITO' || ['C6 BANK', 'NUBANK'].includes(formData.bank.toUpperCase());
+                      if (isCredit) {
+                        const { paymentDate } = calculateCreditCardInvoiceDates(newCompDate, formData.bank, formData.payment_method);
+                        setFormData({ ...formData, competency_date: newCompDate, date: paymentDate });
+                      } else {
+                        setFormData({ ...formData, competency_date: newCompDate });
+                      }
+                    }}
+                  />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic font-bold text-indigo-400">Pagar no dia :</label>
-                  <input required type="date" className="w-full bg-slate-950 border border-indigo-500/30 rounded-2xl p-5 font-black text-xs focus:border-indigo-500 focus:outline-none shadow-[0_0_15px_rgba(99,102,241,0.1)]" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+                  <label className="text-[10px] font-black text-slate-500 tracking-[0.2em] mb-3 block uppercase italic font-bold text-indigo-400">Pagar no dia (Fatura):</label>
+                  <input
+                    required
+                    type="date"
+                    className="w-full bg-slate-950 border border-indigo-500/30 rounded-2xl p-5 font-black text-xs focus:border-indigo-500 focus:outline-none shadow-[0_0_15px_rgba(99,102,241,0.1)]"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  />
                 </div>
+
+                {(formData.payment_method === 'CARTÃO DE CRÉDITO' || ['C6 BANK', 'NUBANK'].includes(formData.bank.toUpperCase())) && (
+                  <div className="col-span-2 p-3.5 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <span className="text-indigo-300 font-bold flex items-center gap-1.5">
+                      <span>💳</span> Fatura C6 / Nubank: Fecha dia 03 • Vence dia 10
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                      {parseInt(formData.competency_date?.split('-')[2] || '0') <= 3
+                        ? '✓ Compra até dia 03: Vence dia 10 deste mês'
+                        : '✓ Compra após dia 03: Vence dia 10 do próximo mês'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div>

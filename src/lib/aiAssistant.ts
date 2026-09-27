@@ -7,9 +7,77 @@ export interface ParsedTransaction {
   sub_category: string
   bank: string
   payment_method: string
-  date: string
+  date: string             // Data de pagamento / vencimento da fatura
+  competency_date?: string // Data real da compra
   notes: string
   status?: 'pending' | 'completed'
+  cycleNote?: string
+}
+
+/**
+ * Regra de Fechamento e Vencimento de Cartão de Crédito (C6 Bank e Nubank):
+ * - Fechamento da fatura: dia 03
+ * - Vencimento da fatura: dia 10
+ * - Se a compra foi feita até o dia 03: fatura fecha dia 03 e vence dia 10 do MESMO mês.
+ * - Se a compra foi feita após o dia 03: fatura fecha dia 03 do mês seguinte e vence dia 10 do PRÓXIMO mês.
+ */
+export function calculateCreditCardInvoiceDates(
+  purchaseDateStr: string,
+  bank?: string,
+  paymentMethod?: string
+): { paymentDate: string; competencyDate: string; isCreditCardCycle: boolean; cycleNote?: string } {
+  const isCredit = paymentMethod === 'CARTÃO DE CRÉDITO' ||
+    (bank && ['C6 BANK', 'NUBANK'].includes(bank.toUpperCase()))
+
+  if (!isCredit) {
+    return {
+      paymentDate: purchaseDateStr,
+      competencyDate: purchaseDateStr,
+      isCreditCardCycle: false
+    }
+  }
+
+  const parts = purchaseDateStr.split('-')
+  if (parts.length !== 3) {
+    return {
+      paymentDate: purchaseDateStr,
+      competencyDate: purchaseDateStr,
+      isCreditCardCycle: false
+    }
+  }
+
+  const year = parseInt(parts[0], 10)
+  const month = parseInt(parts[1], 10) - 1 // 0 = Jan, 11 = Dez
+  const day = parseInt(parts[2], 10)
+
+  let dueYear = year
+  let dueMonth = month
+  let cycleNote = ''
+
+  if (day <= 3) {
+    // Compra até dia 03: cai na fatura deste mês, vence dia 10
+    const mStr = String(dueMonth + 1).padStart(2, '0')
+    cycleNote = `Compra até dia 03: Fatura deste mês (Vence 10/${mStr})`
+  } else {
+    // Compra após dia 03: cai na fatura do próximo mês, vence dia 10
+    dueMonth += 1
+    if (dueMonth > 11) {
+      dueMonth = 0
+      dueYear += 1
+    }
+    const mStr = String(dueMonth + 1).padStart(2, '0')
+    cycleNote = `Compra após dia 03: Fatura do próximo mês (Vence 10/${mStr})`
+  }
+
+  const dueMonthStr = String(dueMonth + 1).padStart(2, '0')
+  const paymentDate = `${dueYear}-${dueMonthStr}-10`
+
+  return {
+    paymentDate,
+    competencyDate: purchaseDateStr,
+    isCreditCardCycle: true,
+    cycleNote
+  }
 }
 
 const CATEGORIES = [
@@ -72,6 +140,7 @@ export function parseLocalNLP(text: string, currentUser: 'Felipe' | 'Mara'): Par
   else if (/dinheiro/i.test(lower)) payment_method = 'DINHEIRO'
   else if (/boleto/i.test(lower)) payment_method = 'BOLETO'
   else if (/pix/i.test(lower)) payment_method = 'PIX'
+  else if (/c6/i.test(lower) || /nubank/i.test(lower)) payment_method = 'CARTÃO DE CRÉDITO'
 
   // Category & Subcategory & Title detection
   let category = 'DESPESAS COM ALIMENTAÇÃO'
@@ -160,6 +229,12 @@ export function parseLocalNLP(text: string, currentUser: 'Felipe' | 'Mara'): Par
     title = 'HORAS EXTRAS'
   }
 
+  const { paymentDate, competencyDate, cycleNote } = calculateCreditCardInvoiceDates(
+    today,
+    bank,
+    payment_method
+  )
+
   return {
     title,
     amount,
@@ -168,9 +243,11 @@ export function parseLocalNLP(text: string, currentUser: 'Felipe' | 'Mara'): Par
     sub_category,
     bank,
     payment_method,
-    date: today,
+    date: paymentDate,
+    competency_date: competencyDate,
     notes: `[Gasto: ${currentUser}]`,
-    status: 'pending'
+    status: 'pending',
+    cycleNote
   }
 }
 
@@ -259,14 +336,34 @@ export async function parseTransaction(
   currentUser: 'Felipe' | 'Mara',
   apiKey?: string
 ): Promise<{ result: ParsedTransaction; source: 'gemini' | 'local' }> {
+  let result: ParsedTransaction
+  let source: 'gemini' | 'local' = 'local'
+
   if (apiKey && apiKey.trim().length > 10) {
     try {
-      const geminiResult = await parseWithGemini(text, currentUser, apiKey.trim())
-      return { result: geminiResult, source: 'gemini' }
+      result = await parseWithGemini(text, currentUser, apiKey.trim())
+      source = 'gemini'
     } catch (err) {
       console.warn('Falha na API Gemini, usando motor local resiliente:', err)
+      result = parseLocalNLP(text, currentUser)
+      source = 'local'
     }
+  } else {
+    result = parseLocalNLP(text, currentUser)
+    source = 'local'
   }
 
-  return { result: parseLocalNLP(text, currentUser), source: 'local' }
+  // Aplica a regra de fechamento (dia 03) e vencimento (dia 10) de cartão (C6 / Nubank)
+  const purchaseDate = result.competency_date || result.date || new Date().toISOString().split('T')[0]
+  const { paymentDate, competencyDate, cycleNote } = calculateCreditCardInvoiceDates(
+    purchaseDate,
+    result.bank,
+    result.payment_method
+  )
+
+  result.date = paymentDate
+  result.competency_date = competencyDate
+  if (cycleNote) result.cycleNote = cycleNote
+
+  return { result, source }
 }

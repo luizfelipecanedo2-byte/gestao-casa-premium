@@ -47,7 +47,9 @@ export function AIAssistantModal({
   const [showKeyConfig, setShowKeyConfig] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const isHoldingRef = useRef(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const isPointerDownRef = useRef(false)
+  const pointerStartTimeRef = useRef(0)
   const recognitionRef = useRef<any>(null)
   const lastTranscriptRef = useRef('')
 
@@ -83,7 +85,7 @@ export function AIAssistantModal({
 
       const rec = new SpeechRecognition()
       rec.lang = 'pt-BR'
-      rec.continuous = true
+      rec.continuous = false // Crucial para compatibilidade com iOS Safari / WebKit
       rec.interimResults = true
       rec.maxAlternatives = 1
 
@@ -107,9 +109,17 @@ export function AIAssistantModal({
 
       rec.onerror = (event: any) => {
         console.warn('SpeechRecognition error:', event.error)
-        if (event.error === 'not-allowed') {
-          setErrorMessage('Permissão de microfone necessária. Ative o microfone nas permissões do site!')
-        } else if (event.error !== 'no-speech') {
+        if (event.error === 'service-not-allowed') {
+          setErrorMessage('dictation-disabled')
+        } else if (event.error === 'not-allowed') {
+          setErrorMessage('Permissão de microfone negada. Ative o microfone nas permissões do site!')
+        } else if (event.error === 'audio-capture') {
+          setErrorMessage('Microfone não disponível ou em uso por outro app.')
+        } else if (event.error === 'network') {
+          setErrorMessage('Erro de conexão com o serviço de voz. Verifique sua conexão com a internet.')
+        } else if (event.error === 'no-speech') {
+          setErrorMessage('Nenhuma fala detectada. Toque no microfone e fale perto do celular.')
+        } else {
           setErrorMessage(`Aviso: ${event.error}`)
         }
         setIsListening(false)
@@ -144,34 +154,37 @@ export function AIAssistantModal({
     setIsListening(false)
   }
 
-  // Push-To-Talk handlers (Pressione e Segure para falar)
+  // Push-To-Talk + Tap-To-Talk handlers
   const handlePointerDown = (e: React.PointerEvent) => {
-    e.preventDefault()
-    isHoldingRef.current = true
-    startListening()
-  }
+    if (e.button !== 0 && e.pointerType === 'mouse') return
+    pointerStartTimeRef.current = Date.now()
+    isPointerDownRef.current = true
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    e.preventDefault()
-    if (isHoldingRef.current) {
-      isHoldingRef.current = false
-      stopListening()
-    }
-  }
-
-  const handlePointerLeave = (e: React.PointerEvent) => {
-    if (isHoldingRef.current) {
-      isHoldingRef.current = false
-      stopListening()
-    }
-  }
-
-  // Also support simple tap-to-toggle
-  const handleToggleClick = () => {
     if (isListening) {
       stopListening()
     } else {
       startListening()
+    }
+  }
+
+  const handlePointerUp = () => {
+    if (!isPointerDownRef.current) return
+    isPointerDownRef.current = false
+    const holdTime = Date.now() - pointerStartTimeRef.current
+
+    // Se segurou por mais de 500ms, foi Push-To-Talk -> soltar encerra a gravação
+    if (holdTime >= 500 && isListening) {
+      stopListening()
+    }
+  }
+
+  const handlePointerLeave = () => {
+    if (isPointerDownRef.current) {
+      isPointerDownRef.current = false
+      const holdTime = Date.now() - pointerStartTimeRef.current
+      if (holdTime >= 500 && isListening) {
+        stopListening()
+      }
     }
   }
 
@@ -307,7 +320,7 @@ export function AIAssistantModal({
               onPointerDown={handlePointerDown}
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerLeave}
-              onClick={handleToggleClick}
+              onContextMenu={(e) => e.preventDefault()}
               style={{ touchAction: 'none' }}
               className={`w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-2xl relative cursor-pointer active:scale-95 ${
                 isListening
@@ -323,38 +336,80 @@ export function AIAssistantModal({
             {isListening ? (
               <span className="text-rose-400 flex items-center justify-center gap-2 animate-pulse">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
-                Gravando sua voz... Solte para lançar!
+                Gravando sua voz... Solte ou toque para lançar!
               </span>
             ) : (
               <span className="text-slate-200">
-                Pressione e segure para falar (ou dê um toque)
+                Pressione para falar (ou dê um toque)
               </span>
             )}
           </p>
 
-          <p className="text-[10px] text-slate-500 mt-1.5 text-center max-w-sm">
+          <p className="text-[10px] text-slate-400 mt-1.5 text-center max-w-sm">
             Exemplo: "Comprei 20 reais no supermercado com o cartão C6"
           </p>
 
-          {errorMessage && (
+          {errorMessage === 'dictation-disabled' ? (
             <motion.div
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-4 p-3 bg-rose-950/40 border border-rose-500/30 rounded-xl text-rose-300 text-xs font-bold flex items-center gap-2 text-center"
+              className="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-left space-y-3 w-full max-w-md"
+            >
+              <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
+                <AlertCircle size={18} className="shrink-0" />
+                <span>Ditado do iPhone Desativado</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                No iPhone (iOS), o Safari exige que o <strong>Ditado</strong> esteja ligado nos Ajustes do sistema:
+              </p>
+              <div className="p-2.5 bg-black/50 border border-white/10 rounded-xl text-[11px] font-medium text-amber-200 flex items-center gap-2">
+                <span>⚙️</span>
+                <span>Ajustes &gt; Geral &gt; Teclado &gt; Ativar Ditado</span>
+              </div>
+              <div className="pt-2 border-t border-white/10 flex flex-col gap-2">
+                <p className="text-[11px] font-semibold text-slate-300">
+                  💡 Ou fale agora mesmo usando o microfone do seu teclado:
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    inputRef.current?.focus()
+                  }}
+                  className="w-full py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-indigo-600/30"
+                >
+                  <span>🎙️</span> Tocar para Abrir Teclado e Falar
+                </button>
+              </div>
+            </motion.div>
+          ) : errorMessage ? (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 p-3 bg-rose-950/40 border border-rose-500/30 rounded-xl text-rose-300 text-xs font-bold flex items-center gap-2 text-center max-w-md"
             >
               <AlertCircle size={16} className="text-rose-400 shrink-0" />
               <span>{errorMessage}</span>
             </motion.div>
-          )}
+          ) : null}
         </div>
 
         {/* Live / Typed Text Box */}
         <div className="space-y-2">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-            Texto falado ou digitado:
-          </label>
+          <div className="flex justify-between items-center">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              Texto falado ou digitado:
+            </label>
+            <button
+              type="button"
+              onClick={() => inputRef.current?.focus()}
+              className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <span>📱 Ditar pelo teclado</span>
+            </button>
+          </div>
           <div className="relative">
             <input
+              ref={inputRef}
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -364,7 +419,7 @@ export function AIAssistantModal({
                   handleAnalyzeText()
                 }
               }}
-              placeholder="O que você comprou? (ou fale pelo microfone acima)"
+              placeholder="O que você comprou? (ou fale pelo microfone)"
               className="w-full bg-slate-950 border border-white/10 rounded-2xl py-4 pl-5 pr-14 text-sm font-semibold text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-all"
             />
 
@@ -378,6 +433,9 @@ export function AIAssistantModal({
               {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Send size={16} />}
             </button>
           </div>
+          <p className="text-[10px] text-slate-500">
+            Dica no celular: você também pode tocar no campo acima e clicar no microfone 🎙️ do próprio teclado para falar!
+          </p>
         </div>
 
         {/* Quick Example Suggestions */}

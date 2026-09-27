@@ -618,6 +618,24 @@ function App() {
                   </button>
                 </div>
 
+                {/* Global Year Selector - Seleção de Ano no Topo */}
+                <div className="flex items-center gap-2 px-3 py-2 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl shadow-lg shadow-indigo-500/10">
+                  <Calendar size={14} className="text-indigo-400 shrink-0" />
+                  <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest hidden sm:inline">Ano:</span>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="bg-transparent text-xs font-black text-white focus:outline-none uppercase tracking-wider cursor-pointer border-none appearance-none pr-1"
+                    title="Ano de Referência do Sistema"
+                  >
+                    {[2024, 2025, 2026, 2027, 2028, 2029].map(year => (
+                      <option key={year} value={year} className="bg-slate-900 text-white font-black">
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* AI Assistant Voice/Text Button */}
                 <button
                   type="button"
@@ -703,6 +721,8 @@ function App() {
                 resetForm={resetForm}
                 handleEditClick={handleEditClick}
                 handleDeleteTransaction={handleDeleteTransaction}
+                selectedYear={selectedYear}
+                setSelectedYear={setSelectedYear}
               />
             ) : (
               <FluxoView
@@ -1948,7 +1968,7 @@ function FluxoView({
               <option value="ate-fim-ano">ATÉ O FINAL DO ANO ({targetYear}) ⏳</option>
               <option value="inicio-ate-hoje">DO INÍCIO DO ANO ATÉ HOJE</option>
               <optgroup label={`MESES DE ${targetYear}`}>
-                {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+                {months.map(m => <option key={m.val} value={m.val}>{m.label} ({targetYear})</option>)}
               </optgroup>
             </select>
           </div>
@@ -2784,11 +2804,15 @@ function CartoesView({
   setEditingId,
   resetForm,
   handleEditClick,
-  handleDeleteTransaction
+  handleDeleteTransaction,
+  selectedYear: propSelectedYear,
+  setSelectedYear: propSetSelectedYear
 }: any) {
   const [selectedCard, setSelectedCard] = useState<'NUBANK' | 'C6 BANK' | 'OUTROS'>('NUBANK');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [localYear, setLocalYear] = useState(new Date().getFullYear());
+  const selectedYear = propSelectedYear ?? localYear;
+  const setSelectedYear = propSetSelectedYear ?? setLocalYear;
 
   const months = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",

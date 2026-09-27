@@ -14,7 +14,8 @@ import {
   Key,
   ChevronDown,
   ChevronUp,
-  Loader2
+  Loader2,
+  AlertCircle
 } from 'lucide-react'
 import { parseTransaction, type ParsedTransaction } from '../lib/aiAssistant'
 
@@ -44,59 +45,133 @@ export function AIAssistantModal({
   const [aiSource, setAiSource] = useState<'gemini' | 'local' | null>(null)
   const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '')
   const [showKeyConfig, setShowKeyConfig] = useState(false)
-  const [speechSupported, setSpeechSupported] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
+  const isHoldingRef = useRef(false)
   const recognitionRef = useRef<any>(null)
+  const lastTranscriptRef = useRef('')
 
+  // Clean up recognition on unmount
   useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort()
+        } catch (e) {}
+      }
+    }
+  }, [])
+
+  const startListening = () => {
+    setErrorMessage(null)
+    setParsedResult(null)
+    lastTranscriptRef.current = ''
+
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) {
-      setSpeechSupported(false)
+      setErrorMessage('Seu navegador não suporta reconhecimento de voz direto. Digite na caixa de texto!')
       return
     }
 
-    const recognition = new SpeechRecognition()
-    recognition.lang = 'pt-BR'
-    recognition.continuous = false
-    recognition.interimResults = false
-
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript
-      setInputText(transcript)
-      handleAnalyzeText(transcript)
-      setIsListening(false)
-    }
-
-    recognition.onerror = (event: any) => {
-      console.warn('Erro no reconhecimento de voz:', event.error)
-      setIsListening(false)
-    }
-
-    recognition.onend = () => {
-      setIsListening(false)
-    }
-
-    recognitionRef.current = recognition
-  }, [currentUser, geminiApiKey])
-
-  const toggleListening = () => {
-    if (!speechSupported) {
-      alert('Seu navegador não suporta reconhecimento de voz direto. Você pode digitar na caixa de texto!')
-      return
-    }
-
-    if (isListening) {
-      recognitionRef.current?.stop()
-      setIsListening(false)
-    } else {
-      setParsedResult(null)
-      try {
-        recognitionRef.current?.start()
-        setIsListening(true)
-      } catch (e) {
-        console.error('Falha ao iniciar microfone:', e)
+    try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort()
+        } catch (e) {}
       }
+
+      const rec = new SpeechRecognition()
+      rec.lang = 'pt-BR'
+      rec.continuous = true
+      rec.interimResults = true
+      rec.maxAlternatives = 1
+
+      rec.onstart = () => {
+        setIsListening(true)
+        if ('vibrate' in navigator) {
+          try { navigator.vibrate(40) } catch (e) {}
+        }
+      }
+
+      rec.onresult = (event: any) => {
+        let currentText = ''
+        for (let i = 0; i < event.results.length; i++) {
+          currentText += event.results[i][0].transcript
+        }
+        if (currentText) {
+          lastTranscriptRef.current = currentText
+          setInputText(currentText)
+        }
+      }
+
+      rec.onerror = (event: any) => {
+        console.warn('SpeechRecognition error:', event.error)
+        if (event.error === 'not-allowed') {
+          setErrorMessage('Permissão de microfone necessária. Ative o microfone nas permissões do site!')
+        } else if (event.error !== 'no-speech') {
+          setErrorMessage(`Aviso: ${event.error}`)
+        }
+        setIsListening(false)
+      }
+
+      rec.onend = () => {
+        setIsListening(false)
+        const finalRecorded = lastTranscriptRef.current.trim()
+        if (finalRecorded) {
+          handleAnalyzeText(finalRecorded)
+        }
+      }
+
+      recognitionRef.current = rec
+      rec.start()
+    } catch (err: any) {
+      console.error('Falha ao iniciar microfone:', err)
+      setErrorMessage('Toque novamente para iniciar o microfone.')
+      setIsListening(false)
+    }
+  }
+
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      try {
+        if ('vibrate' in navigator) {
+          try { navigator.vibrate(30) } catch (e) {}
+        }
+        recognitionRef.current.stop()
+      } catch (e) {}
+    }
+    setIsListening(false)
+  }
+
+  // Push-To-Talk handlers (Pressione e Segure para falar)
+  const handlePointerDown = (e: React.PointerEvent) => {
+    e.preventDefault()
+    isHoldingRef.current = true
+    startListening()
+  }
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    e.preventDefault()
+    if (isHoldingRef.current) {
+      isHoldingRef.current = false
+      stopListening()
+    }
+  }
+
+  const handlePointerLeave = (e: React.PointerEvent) => {
+    if (isHoldingRef.current) {
+      isHoldingRef.current = false
+      stopListening()
+    }
+  }
+
+  // Also support simple tap-to-toggle
+  const handleToggleClick = () => {
+    if (isListening) {
+      stopListening()
+    } else {
+      startListening()
     }
   }
 
@@ -154,7 +229,7 @@ export function AIAssistantModal({
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative w-full max-w-2xl bg-[#0c101c] border border-indigo-500/30 rounded-[2.5rem] shadow-2xl p-6 lg:p-8 z-10 overflow-hidden font-sans space-y-6"
+        className="relative w-full max-w-2xl bg-[#0c101c] border border-indigo-500/30 rounded-[2.5rem] shadow-2xl p-6 lg:p-8 z-10 overflow-hidden font-sans space-y-6 max-h-[92vh] overflow-y-auto custom-scroll"
       >
         {/* Glow ambient */}
         <div className="absolute top-0 right-0 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
@@ -170,7 +245,7 @@ export function AIAssistantModal({
                 Assistente de Voz IA
               </h3>
               <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">
-                Fale ou digite para lançar na hora
+                Pressione para falar seu gasto
               </p>
             </div>
           </div>
@@ -216,62 +291,93 @@ export function AIAssistantModal({
           </div>
         </div>
 
-        {/* Microphone and Speech Area */}
-        <div className="flex flex-col items-center justify-center p-6 bg-gradient-to-b from-indigo-950/20 to-black/40 border border-white/5 rounded-3xl relative">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            type="button"
-            onClick={toggleListening}
-            className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-2xl relative ${
-              isListening
-                ? 'bg-rose-500 text-white shadow-rose-500/50 animate-pulse ring-8 ring-rose-500/20'
-                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/40'
-            }`}
+        {/* PUSH-TO-TALK Voice Area */}
+        <div className="flex flex-col items-center justify-center p-8 bg-gradient-to-b from-indigo-950/20 to-black/40 border border-white/5 rounded-3xl relative select-none">
+          <motion.div
+            animate={isListening ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+            transition={{ repeat: Infinity, duration: 1.2 }}
+            className="relative"
           >
-            {isListening ? <MicOff size={32} /> : <Mic size={32} />}
-          </motion.button>
+            {isListening && (
+              <div className="absolute inset-0 rounded-full bg-rose-500/30 animate-ping pointer-events-none" />
+            )}
 
-          <p className="mt-4 text-xs font-black uppercase tracking-widest text-slate-300 text-center">
+            <button
+              type="button"
+              onPointerDown={handlePointerDown}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerLeave}
+              onClick={handleToggleClick}
+              style={{ touchAction: 'none' }}
+              className={`w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-2xl relative cursor-pointer active:scale-95 ${
+                isListening
+                  ? 'bg-rose-600 text-white shadow-rose-500/50 ring-8 ring-rose-500/25'
+                  : 'bg-gradient-to-tr from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-indigo-600/40 ring-4 ring-indigo-500/10'
+              }`}
+            >
+              {isListening ? <MicOff size={36} /> : <Mic size={36} />}
+            </button>
+          </motion.div>
+
+          <p className="mt-5 text-xs font-black uppercase tracking-widest text-center">
             {isListening ? (
-              <span className="text-rose-400 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
-                Ouvindo sua voz... Pode falar!
+              <span className="text-rose-400 flex items-center justify-center gap-2 animate-pulse">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
+                Gravando sua voz... Solte para lançar!
               </span>
             ) : (
-              'Clique no microfone e fale seu gasto'
+              <span className="text-slate-200">
+                Pressione e segure para falar (ou dê um toque)
+              </span>
             )}
           </p>
 
-          <p className="text-[10px] text-slate-500 mt-1 text-center">
-            Ex: "Comprei 20 reais no supermercado com o cartão C6"
+          <p className="text-[10px] text-slate-500 mt-1.5 text-center max-w-sm">
+            Exemplo: "Comprei 20 reais no supermercado com o cartão C6"
           </p>
+
+          {errorMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 p-3 bg-rose-950/40 border border-rose-500/30 rounded-xl text-rose-300 text-xs font-bold flex items-center gap-2 text-center"
+            >
+              <AlertCircle size={16} className="text-rose-400 shrink-0" />
+              <span>{errorMessage}</span>
+            </motion.div>
+          )}
         </div>
 
-        {/* Text Input Option */}
-        <div className="relative">
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                handleAnalyzeText()
-              }
-            }}
-            placeholder="Ou digite aqui o que comprou..."
-            className="w-full bg-slate-950 border border-white/10 rounded-2xl py-4 pl-5 pr-14 text-sm font-semibold text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-all"
-          />
+        {/* Live / Typed Text Box */}
+        <div className="space-y-2">
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+            Texto falado ou digitado:
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleAnalyzeText()
+                }
+              }}
+              placeholder="O que você comprou? (ou fale pelo microfone acima)"
+              className="w-full bg-slate-950 border border-white/10 rounded-2xl py-4 pl-5 pr-14 text-sm font-semibold text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-all"
+            />
 
-          <button
-            type="button"
-            onClick={() => handleAnalyzeText()}
-            disabled={isProcessing || !inputText.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:hover:bg-indigo-600 text-white rounded-xl flex items-center justify-center transition-all"
-          >
-            {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Send size={16} />}
-          </button>
+            <button
+              type="button"
+              onClick={() => handleAnalyzeText()}
+              disabled={isProcessing || !inputText.trim()}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:hover:bg-indigo-600 text-white rounded-xl flex items-center justify-center transition-all cursor-pointer"
+              title="Analisar com IA"
+            >
+              {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <Send size={16} />}
+            </button>
+          </div>
         </div>
 
         {/* Quick Example Suggestions */}
@@ -289,7 +395,7 @@ export function AIAssistantModal({
                 setInputText(ex)
                 handleAnalyzeText(ex)
               }}
-              className="text-[10px] font-semibold px-2.5 py-1 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 border border-white/5 rounded-lg transition-all"
+              className="text-[10px] font-semibold px-2.5 py-1 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 border border-white/5 rounded-lg transition-all cursor-pointer"
             >
               "{ex}"
             </button>
@@ -303,7 +409,7 @@ export function AIAssistantModal({
             animate={{ opacity: 1, y: 0 }}
             className="p-5 bg-indigo-950/30 border border-indigo-500/40 rounded-3xl space-y-4"
           >
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300 flex items-center gap-1.5">
                 <Check size={14} className="text-emerald-400" />
                 Lançamento Identificado com Sucesso
@@ -341,11 +447,11 @@ export function AIAssistantModal({
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-col sm:flex-row">
               <button
                 type="button"
                 onClick={() => onOpenInForm(parsedResult)}
-                className="flex-1 py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all active:scale-95"
+                className="flex-1 py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all active:scale-95 cursor-pointer text-center"
               >
                 Ajustar no Formulário
               </button>
@@ -354,7 +460,7 @@ export function AIAssistantModal({
                 type="button"
                 onClick={handleExecuteSave}
                 disabled={isProcessing}
-                className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
+                className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all active:scale-95 cursor-pointer"
               >
                 {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                 <span>Confirmar e Lançar</span>
@@ -368,7 +474,7 @@ export function AIAssistantModal({
           <button
             type="button"
             onClick={() => setShowKeyConfig(!showKeyConfig)}
-            className="flex items-center justify-between w-full text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors"
+            className="flex items-center justify-between w-full text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
           >
             <span className="flex items-center gap-1.5">
               <Key size={12} />

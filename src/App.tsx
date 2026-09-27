@@ -730,10 +730,10 @@ function App() {
           whileTap={{ scale: 0.93 }}
           type="button"
           onClick={() => setIsAIModalOpen(true)}
-          className="w-13 h-13 p-3.5 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-2xl shadow-indigo-600/50 border border-white/20 active:scale-95"
+          className="w-14 h-14 rounded-full bg-gradient-to-tr from-violet-600 via-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-2xl shadow-indigo-600/60 border border-white/20 active:scale-95 cursor-pointer ring-4 ring-indigo-500/20"
           title="Falar com a IA"
         >
-          <Mic size={24} strokeWidth={2.5} />
+          <Mic size={26} strokeWidth={2.5} className="text-amber-300" />
         </motion.button>
 
         <motion.button
@@ -741,7 +741,7 @@ function App() {
           whileTap={{ scale: 0.93 }}
           type="button"
           onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
-          className="w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-2xl shadow-indigo-600/50 border border-white/20 active:scale-95"
+          className="w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-2xl shadow-indigo-600/50 border border-white/20 active:scale-95 cursor-pointer"
           title="Novo Lançamento Manual"
         >
           <Plus size={28} strokeWidth={2.5} />

@@ -1974,55 +1974,106 @@ function FluxoView({
         </button>
       </div>
 
-      <div className="bg-slate-900/40 border border-white/5 rounded-[2.5rem] overflow-hidden border-b-4 border-b-indigo-500/20 shadow-2xl relative pb-20">
-        {selectedIds.length > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 z-20 glass-card bg-[#0b1222]/95 border-t border-indigo-500/40 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-5 backdrop-blur-xl shadow-2xl">
-            <div className="flex items-center gap-3 ml-2">
-              <span className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 font-black text-xs flex items-center justify-center border border-indigo-500/30">
-                {selectedIds.length}
-              </span>
-              <div>
-                <span className="text-white font-black uppercase text-xs tracking-wider block">
-                  {selectedIds.length} {selectedIds.length === 1 ? 'Lançamento Selecionado' : 'Lançamentos Selecionados'}
-                </span>
-                <span className="text-indigo-400 font-bold text-[9px] uppercase tracking-widest">Ações em Massa Disponíveis</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 flex-wrap">
-              <button
-                type="button"
-                onClick={handleBulkDelete}
-                disabled={isProcessing}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-black text-[10px] uppercase rounded-xl tracking-widest shadow-lg shadow-rose-600/30 transition-all flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50"
-                title="Apagar todos os lançamentos selecionados"
-              >
-                {isProcessing ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-                <span>Apagar Selecionados</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleBulkPay}
-                disabled={isProcessing}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase rounded-xl tracking-widest shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50"
-                title="Marcar todos os selecionados como pagos"
-              >
-                {isProcessing ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                <span>Baixar (Pagar)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedIds([])}
-                className="p-2.5 hover:bg-white/5 text-slate-400 hover:text-white rounded-xl text-xs transition-colors"
-                title="Desmarcar todos"
-              >
-                <X size={16} />
-              </button>
+      {/* Top Banner when items are selected */}
+      {selectedIds.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-5 bg-gradient-to-r from-rose-950/60 via-slate-900 to-indigo-950/60 border-2 border-rose-500/50 rounded-3xl flex flex-wrap items-center justify-between gap-4 shadow-2xl"
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-2xl bg-rose-500/20 text-rose-300 font-black text-sm flex items-center justify-center border border-rose-500/40">
+              {selectedIds.length}
+            </span>
+            <div>
+              <p className="text-white font-black uppercase text-sm">
+                {selectedIds.length} {selectedIds.length === 1 ? 'Lançamento Selecionado' : 'Lançamentos Selecionados'}
+              </p>
+              <p className="text-rose-300 text-xs font-bold">
+                Ações em lote disponíveis para os itens marcados:
+              </p>
             </div>
           </div>
-        )}
+
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={isProcessing}
+              className="px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase rounded-xl tracking-wider shadow-lg shadow-rose-600/40 transition-all flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50 ring-2 ring-rose-400/30"
+              title="Apagar todos os lançamentos selecionados"
+            >
+              {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+              <span>🗑️ Apagar {selectedIds.length} Selecionados</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleBulkPay}
+              disabled={isProcessing}
+              className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase rounded-xl tracking-wider shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50"
+              title="Marcar todos os selecionados como pagos"
+            >
+              {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+              <span>Baixar (Pagar)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="px-4 py-3 bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            >
+              Desmarcar Tudo
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Fixed Floating Bottom Bar when items are selected */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-2xl bg-[#0b1222]/95 border-2 border-rose-500/50 p-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-5 backdrop-blur-2xl shadow-2xl">
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 font-black text-xs flex items-center justify-center border border-rose-500/30">
+              {selectedIds.length}
+            </span>
+            <span className="text-white font-black uppercase text-xs tracking-wider">
+              {selectedIds.length} Selecionados
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={isProcessing}
+              className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs uppercase rounded-xl tracking-wider shadow-lg shadow-rose-600/40 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+            >
+              <Trash2 size={15} />
+              <span>Apagar Selecionados</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleBulkPay}
+              disabled={isProcessing}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase rounded-xl tracking-wider shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+            >
+              <Check size={15} />
+              <span>Baixar</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="p-2.5 hover:bg-white/10 text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-slate-900/40 border border-white/5 rounded-[2.5rem] overflow-hidden border-b-4 border-b-indigo-500/20 shadow-2xl relative pb-20">
         <div className="w-full overflow-x-auto">
           <table className="w-full text-left min-w-[1000px]">
             <thead>

@@ -56,9 +56,13 @@ import {
   ArrowDownRight,
   CreditCard as CreditCardIcon,
   Target,
-  AlertCircle
+  AlertCircle,
+  Mic,
+  User
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
+import { AIAssistantModal } from './components/AIAssistantModal'
+import { type ParsedTransaction } from './lib/aiAssistant'
 
 const chartData = [
   { name: 'Jan', income: 12000, expenses: 8000 },
@@ -149,6 +153,63 @@ function App() {
   useEffect(() => {
     localStorage.setItem('isPrivate', String(isPrivate))
   }, [isPrivate])
+
+  const [currentUser, setCurrentUser] = useState<'Felipe' | 'Mara'>(() => {
+    return (localStorage.getItem('currentUser') as 'Felipe' | 'Mara') || 'Felipe'
+  })
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false)
+
+  useEffect(() => {
+    localStorage.setItem('currentUser', currentUser)
+  }, [currentUser])
+
+  const handleAIConfirmTransaction = async (parsed: ParsedTransaction) => {
+    try {
+      const payload = {
+        title: parsed.title,
+        category: parsed.category,
+        sub_category: parsed.sub_category,
+        amount: parsed.amount,
+        type: parsed.type,
+        date: parsed.date,
+        competency_date: parsed.date,
+        bank: parsed.bank,
+        payment_method: parsed.payment_method,
+        notes: parsed.notes,
+        status: parsed.status || 'pending'
+      }
+      const { error } = await supabase.from('home_transactions').insert([payload])
+      if (error) throw error
+      fetchTransactions()
+      showToast(`✨ Lançado com sucesso por ${currentUser}!`, 'success')
+    } catch (err) {
+      console.error('Erro ao salvar via IA:', err)
+      showToast('Erro ao salvar lançamento via IA.', 'error')
+      throw err
+    }
+  }
+
+  const handleAIOpenInForm = (parsed: ParsedTransaction) => {
+    setIsAIModalOpen(false)
+    setEditingId(null)
+    setFormData({
+      title: parsed.title,
+      category: parsed.category,
+      sub_category: parsed.sub_category,
+      amount: String(parsed.amount),
+      type: parsed.type,
+      date: parsed.date,
+      competency_date: parsed.date,
+      bank: parsed.bank,
+      payment_method: parsed.payment_method,
+      notes: parsed.notes,
+      payment_date: '',
+      status: parsed.status || 'pending',
+      installments: '1',
+      entry_type: 'single'
+    })
+    setIsModalOpen(true)
+  }
 
   const [timeRange, setTimeRange] = useState<'month' | 'year'>('month')
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
@@ -460,12 +521,28 @@ function App() {
                     <Check size={12} /> CONTA CONJUNTA
                   </p>
                 </div>
-                <div className="flex items-center gap-3 px-2">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center font-black text-xs text-indigo-300">F&M</div>
-                  <div className="hidden lg:block truncate">
-                    <p className="text-[10px] font-bold text-white uppercase leading-tight">Felipe & Mara</p>
-                    <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider">Gestão do Lar</p>
+                <div className="flex items-center justify-between gap-3 px-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-10 h-10 rounded-full border flex items-center justify-center font-black text-sm shadow-inner ${
+                      currentUser === 'Mara'
+                        ? 'bg-pink-500/20 border-pink-500/30 text-pink-300'
+                        : 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300'
+                    }`}>
+                      {currentUser === 'Mara' ? '👩' : '👨'}
+                    </div>
+                    <div className="hidden lg:block truncate">
+                      <p className="text-[10px] font-bold text-white uppercase leading-tight">{currentUser}</p>
+                      <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider">Perfil Ativo</p>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentUser(currentUser === 'Felipe' ? 'Mara' : 'Felipe')}
+                    className="hidden lg:block text-[8px] font-black uppercase px-2.5 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-indigo-300 hover:text-white border border-white/5 transition-all"
+                    title="Alternar perfil ativo"
+                  >
+                    Trocar
+                  </button>
                 </div>
               </div>
             </div>
@@ -502,21 +579,62 @@ function App() {
                 <p className="text-slate-500 font-bold tracking-[0.4em] text-[9px] mt-2 uppercase opacity-40">SISTEMA INTELIGENTE DE MODELAGEM FINANCEIRA</p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Profile Switcher Pills */}
+                <div className="flex items-center p-1 bg-white/5 border border-white/10 rounded-2xl">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentUser('Felipe')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                      currentUser === 'Felipe'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Alternar para perfil de Felipe"
+                  >
+                    <span>👨</span> <span className="hidden sm:inline">Felipe</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentUser('Mara')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                      currentUser === 'Mara'
+                        ? 'bg-pink-600 text-white shadow-md shadow-pink-600/30'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Alternar para perfil de Mara"
+                  >
+                    <span>👩</span> <span className="hidden sm:inline">Mara</span>
+                  </button>
+                </div>
+
+                {/* AI Assistant Voice/Text Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsAIModalOpen(true)}
+                  className="px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-indigo-500/25 transition-all active:scale-95 border border-indigo-400/30"
+                  title="Falar com a Inteligência Artificial"
+                >
+                  <Sparkles size={16} className="text-amber-300 animate-pulse" />
+                  <Mic size={16} />
+                  <span>Falar com IA</span>
+                </button>
+
                 <button
                   onClick={() => setIsPrivate(!isPrivate)}
-                  className="px-4 py-2.5 glass-card flex items-center gap-2 text-slate-400 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
+                  className="px-3.5 py-2.5 glass-card flex items-center gap-2 text-slate-400 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
                   title={isPrivate ? "Mostrar Valores" : "Ocultar Valores (Privacidade)"}
                 >
                   {isPrivate ? <Eye size={16} className="text-indigo-400" /> : <EyeOff size={16} />}
-                  <span className="hidden sm:inline">{isPrivate ? "Valores Ocultos" : "Ocultar"}</span>
+                  <span className="hidden md:inline">{isPrivate ? "Valores Ocultos" : "Ocultar"}</span>
                 </button>
+
                 <button
                   onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
                   className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
                 >
                   <Plus size={16} strokeWidth={3} />
-                  <span>Novo Lançamento</span>
+                  <span className="hidden sm:inline">Novo</span>
                 </button>
               </div>
             </header>
@@ -605,16 +723,30 @@ function App() {
         </div>
       )}
 
-      {/* Floating Action Button (FAB) for Mobile Quick Add */}
-      <motion.button
-        whileHover={{ scale: 1.08 }}
-        whileTap={{ scale: 0.93 }}
-        onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
-        className="fixed bottom-6 right-6 z-40 md:hidden w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-2xl shadow-indigo-600/50 border border-white/20 active:scale-95"
-        title="Novo Lançamento Rápido"
-      >
-        <Plus size={28} strokeWidth={2.5} />
-      </motion.button>
+      {/* Floating Action Buttons for Mobile */}
+      <div className="fixed bottom-6 right-6 z-40 md:hidden flex flex-col gap-3 items-end">
+        <motion.button
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.93 }}
+          type="button"
+          onClick={() => setIsAIModalOpen(true)}
+          className="w-13 h-13 p-3.5 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shadow-2xl shadow-indigo-600/50 border border-white/20 active:scale-95"
+          title="Falar com a IA"
+        >
+          <Mic size={24} strokeWidth={2.5} />
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.93 }}
+          type="button"
+          onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
+          className="w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-2xl shadow-indigo-600/50 border border-white/20 active:scale-95"
+          title="Novo Lançamento Manual"
+        >
+          <Plus size={28} strokeWidth={2.5} />
+        </motion.button>
+      </div>
 
       {/* Modern Floating Toast */}
       <AnimatePresence>
@@ -648,6 +780,20 @@ function App() {
             subCategories={subCategoriesMap[formData.category] || []}
             banks={banks}
             paymentMethods={paymentMethods}
+            formatCurrency={formatCurrency}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isAIModalOpen && (
+          <AIAssistantModal
+            isOpen={isAIModalOpen}
+            onClose={() => setIsAIModalOpen(false)}
+            currentUser={currentUser}
+            setCurrentUser={setCurrentUser}
+            onConfirmTransaction={handleAIConfirmTransaction}
+            onOpenInForm={handleAIOpenInForm}
             formatCurrency={formatCurrency}
           />
         )}
@@ -1869,11 +2015,20 @@ function FluxoView({
                         <p className="font-black text-sm tracking-tight text-white/90 uppercase">{t.title}</p>
                         {isOverdue && <span className="text-[7px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full animate-bounce uppercase">Atraso</span>}
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase ${t.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' : isOverdue ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-rose-500/10 text-rose-500'}`}>
                           {t.status === 'completed' ? 'PAGO' : isOverdue ? 'ATRASADO' : 'PENDENTE'}
                         </span>
                         <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest italic">{t.sub_category}</span>
+                        {(t.notes?.includes('Mara') || t.sub_category?.includes('MARA') || t.title?.toUpperCase().includes('MARA')) ? (
+                          <span className="text-[8px] px-2 py-0.5 rounded-full bg-pink-500/15 border border-pink-500/30 text-pink-300 font-bold flex items-center gap-1">
+                            👩 Mara
+                          </span>
+                        ) : (t.notes?.includes('Felipe') || t.sub_category?.includes('FELIPE') || t.title?.toUpperCase().includes('FELIPE')) ? (
+                          <span className="text-[8px] px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-bold flex items-center gap-1">
+                            👨 Felipe
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td className="p-8 text-center">

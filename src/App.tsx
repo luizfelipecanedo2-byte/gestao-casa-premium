@@ -1738,6 +1738,32 @@ function FluxoView({
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Deseja realmente apagar ${selectedIds.length} lançamento(s) selecionado(s)? Esta ação não pode ser desfeita.`)) return;
+
+    try {
+      setIsProcessing(true);
+      for (let i = 0; i < selectedIds.length; i += 100) {
+        const chunk = selectedIds.slice(i, i + 100);
+        const { error } = await supabase
+          .from('home_transactions')
+          .delete()
+          .in('id', chunk);
+
+        if (error) throw error;
+      }
+
+      setSelectedIds([]);
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      console.error('Erro ao excluir em lote:', e);
+      alert('Erro ao excluir lançamentos selecionados.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const totals = filtered.reduce((acc: any, t: any) => {
     if (t.type === 'receivable') acc.in += (t.amount || 0);
     else acc.out += (t.amount || 0);
@@ -1950,19 +1976,51 @@ function FluxoView({
 
       <div className="bg-slate-900/40 border border-white/5 rounded-[2.5rem] overflow-hidden border-b-4 border-b-indigo-500/20 shadow-2xl relative pb-20">
         {selectedIds.length > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 z-20 glass-card bg-indigo-600/20 border-t border-indigo-500/30 p-4 flex items-center justify-between animate-in slide-in-from-bottom-5">
-            <div className="flex flex-col ml-4">
-              <span className="text-white font-black uppercase text-sm">{selectedIds.length} Lançamentos Selecionados</span>
-              <span className="text-indigo-400 font-bold text-[10px] uppercase tracking-widest">Processamento em Lote Ativo</span>
+          <div className="absolute bottom-0 left-0 right-0 z-20 glass-card bg-[#0b1222]/95 border-t border-indigo-500/40 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-bottom-5 backdrop-blur-xl shadow-2xl">
+            <div className="flex items-center gap-3 ml-2">
+              <span className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 font-black text-xs flex items-center justify-center border border-indigo-500/30">
+                {selectedIds.length}
+              </span>
+              <div>
+                <span className="text-white font-black uppercase text-xs tracking-wider block">
+                  {selectedIds.length} {selectedIds.length === 1 ? 'Lançamento Selecionado' : 'Lançamentos Selecionados'}
+                </span>
+                <span className="text-indigo-400 font-bold text-[9px] uppercase tracking-widest">Ações em Massa Disponíveis</span>
+              </div>
             </div>
-            <button
-              onClick={handleBulkPay}
-              disabled={isProcessing}
-              className="px-6 py-3 bg-indigo-500 hover:bg-indigo-400 text-white font-black text-[10px] uppercase rounded-xl tracking-widest shadow-lg shadow-indigo-500/30 transition-all flex items-center gap-2"
-            >
-              {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-              Baixar Linhas
-            </button>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={isProcessing}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-black text-[10px] uppercase rounded-xl tracking-widest shadow-lg shadow-rose-600/30 transition-all flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50"
+                title="Apagar todos os lançamentos selecionados"
+              >
+                {isProcessing ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                <span>Apagar Selecionados</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleBulkPay}
+                disabled={isProcessing}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase rounded-xl tracking-widest shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-2 active:scale-95 cursor-pointer disabled:opacity-50"
+                title="Marcar todos os selecionados como pagos"
+              >
+                {isProcessing ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                <span>Baixar (Pagar)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className="p-2.5 hover:bg-white/5 text-slate-400 hover:text-white rounded-xl text-xs transition-colors"
+                title="Desmarcar todos"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
         )}
         <div className="w-full overflow-x-auto">

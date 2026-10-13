@@ -62,6 +62,7 @@ import {
 } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { AIAssistantModal } from './components/AIAssistantModal'
+import { InvestimentosView } from './components/InvestimentosView'
 import { type ParsedTransaction, calculateCreditCardInvoiceDates } from './lib/aiAssistant'
 
 const chartData = [
@@ -134,7 +135,7 @@ interface ServiceExpense {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'fluxo' | 'ativos' | 'agenda' | 'cartoes'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'fluxo' | 'investimentos' | 'ativos' | 'agenda' | 'cartoes'>('dashboard')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -513,6 +514,9 @@ function App() {
                 <button onClick={() => setActiveTab('fluxo')} className="group">
                   <NavItem icon={<TrendingUp size={20} />} label="OPERAÇÕES" active={activeTab === 'fluxo'} />
                 </button>
+                <button onClick={() => setActiveTab('investimentos')} className="group">
+                  <NavItem icon={<PiggyBank size={20} />} label="INVESTIMENTOS" active={activeTab === 'investimentos'} />
+                </button>
                 <button onClick={() => setActiveTab('agenda')} className="group">
                   <NavItem icon={<Calendar size={20} />} label="AGENDA" active={activeTab === 'agenda'} />
                 </button>
@@ -520,7 +524,7 @@ function App() {
                   <NavItem icon={<CreditCard size={20} />} label="CARTÕES" active={activeTab === 'cartoes'} />
                 </button>
                 <button onClick={() => setActiveTab('ativos')} className="group">
-                  <NavItem icon={<PiggyBank size={20} />} label="ATIVOS" active={activeTab === 'ativos'} />
+                  <NavItem icon={<Building2 size={20} />} label="ATIVOS" active={activeTab === 'ativos'} />
                 </button>
               </nav>
 
@@ -569,6 +573,8 @@ function App() {
                 >
                   {activeTab === 'dashboard'
                     ? 'Insight'
+                    : activeTab === 'investimentos'
+                    ? 'Rendimentos'
                     : activeTab === 'ativos'
                     ? 'Central'
                     : activeTab === 'agenda'
@@ -578,6 +584,8 @@ function App() {
                     : 'Fluxo'} <span className="text-indigo-500">
                     {activeTab === 'dashboard'
                       ? 'Geral'
+                      : activeTab === 'investimentos'
+                      ? '& Investimento'
                       : activeTab === 'ativos'
                       ? 'de Ativos'
                       : activeTab === 'agenda'
@@ -685,6 +693,14 @@ function App() {
                 setSelectedMonth={setSelectedMonth}
                 selectedYear={selectedYear}
                 setSelectedYear={setSelectedYear}
+              />
+            ) : activeTab === 'investimentos' ? (
+              <InvestimentosView
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+                showToast={showToast}
+                onRefreshTransactions={fetchTransactions}
+                currentUser={currentUser}
               />
             ) : activeTab === 'ativos' ? (
               <AtivosView

@@ -1,0 +1,24 @@
+{
+  "name": "Gestão Casa - Felipe & Mara",
+  "short_name": "Gestão Casa",
+  "description": "Sistema Inteligente de Finanças do Casal - Felipe & Mara",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060913",
+  "theme_color": "#0b101b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

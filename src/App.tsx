@@ -63,6 +63,9 @@ import {
 import { supabase } from './lib/supabase'
 import { AIAssistantModal } from './components/AIAssistantModal'
 import { InvestimentosView } from './components/InvestimentosView'
+import { MobileBottomNav } from './components/MobileBottomNav'
+import { PWAInstallBanner } from './components/PWAInstallBanner'
+import { triggerConfetti } from './lib/confetti'
 import { type ParsedTransaction, calculateCreditCardInvoiceDates } from './lib/aiAssistant'
 
 const chartData = [
@@ -487,6 +490,9 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#030303] text-white font-sans selection:bg-indigo-500/30">
+      {/* PWA Install Banner */}
+      <PWAInstallBanner />
+
       {/* Background ambient glow */}
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-indigo-600/10 blur-[120px] -z-10 pointer-events-none" />
 
@@ -495,7 +501,7 @@ function App() {
       ) : (
         <div className="flex min-h-screen">
           {/* Detached Sidebar */}
-          <aside className="w-24 lg:w-72 p-6 flex flex-col h-screen sticky top-0">
+          <aside className="hidden md:flex w-24 lg:w-72 p-6 flex-col h-screen sticky top-0">
             <div className="glass-card h-full flex flex-col p-6 items-center lg:items-stretch">
               <div className="flex items-center gap-3 px-2 mb-12">
                 <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
@@ -563,7 +569,7 @@ function App() {
           </aside>
 
           {/* Main Content Area */}
-          <main className="flex-1 p-6 lg:p-10 max-w-[1600px] mx-auto w-full">
+          <main className="flex-1 p-4 sm:p-6 lg:p-10 max-w-[1600px] mx-auto w-full pb-28 md:pb-10">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
               <div>
                 <motion.h2
@@ -846,6 +852,14 @@ function App() {
           />
         )}
       </AnimatePresence>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenNewTransaction={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
+        onOpenAIAssistant={() => setIsAIModalOpen(true)}
+      />
     </div>
   )
 }
@@ -996,6 +1010,16 @@ function DashboardView({
     .reduce((acc: number, t: any) => acc + (t.amount || 0), 0);
 
   const netResult = totalReceivable - totalPayable;
+
+  // Safe-to-Spend: Dinheiro Seguro por Dia (descontando os R$ 300 de investimento)
+  const now = new Date();
+  const isCurrentMonthView = timeRange !== 'year' && selectedMonth === now.getMonth() && selectedYear === now.getFullYear();
+  const daysInCurrentMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+  const currentDayOfMonth = isCurrentMonthView ? now.getDate() : 1;
+  const daysRemainingInMonth = isCurrentMonthView ? Math.max(1, daysInCurrentMonth - currentDayOfMonth + 1) : daysInCurrentMonth;
+  const monthlyInvestmentGoal = 300;
+  const netAfterInvestment = netResult - monthlyInvestmentGoal;
+  const safeDailySpend = Math.max(0, netAfterInvestment / daysRemainingInMonth);
 
   const felipeSalary = filteredTransactions
     .filter((t: any) => t.type === 'receivable' && (t.sub_category === 'SALÁRIO FELIPE' || t.title?.toUpperCase().includes('FELIPE')))
@@ -1247,11 +1271,22 @@ function DashboardView({
               <ArrowDownRight size={40} strokeWidth={1} className="text-rose-500 opacity-20 group-hover/item:opacity-100 transition-opacity" />
             </div>
 
-            <div className="flex justify-between items-center p-8 rounded-3xl border border-white/5 bg-gradient-to-br from-indigo-950/20 via-black to-emerald-950/20">
-              <div>
-                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                  <Sparkles size={14} className="text-indigo-400" /> Sobra Livre da Família
-                </p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-8 rounded-3xl border border-white/5 bg-gradient-to-br from-indigo-950/20 via-black to-emerald-950/20 gap-6">
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                    <Sparkles size={14} className="text-indigo-400" /> Sobra Livre da Família
+                  </p>
+                  {netResult > 0 && (
+                    <button
+                      onClick={() => triggerConfetti({ count: 120, durationMs: 3500 })}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-wider border border-emerald-500/20 transition-all flex items-center gap-1 active:scale-95"
+                      title="Celebrar economia do casal"
+                    >
+                      🎉 Comemorar
+                    </button>
+                  )}
+                </div>
                 <p className={`text-4xl lg:text-5xl font-black font-mono-numbers italic tracking-tighter transition-all ${netResult >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {maskValue(formatCurrency(netResult))}
                 </p>
@@ -1262,6 +1297,24 @@ function DashboardView({
                       : '⚠️ Despesas ultrapassaram a renda'}
                   </p>
                 )}
+              </div>
+
+              {/* Card Dinheiro Seguro por Dia (Safe-to-Spend) */}
+              <div className="sm:border-l sm:border-white/10 sm:pl-8 pt-4 sm:pt-0 w-full sm:w-auto">
+                <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                  <DollarSign size={13} /> Dinheiro Livre Seguro Hoje
+                </p>
+                <p className="text-3xl lg:text-4xl font-black font-mono-numbers text-white tracking-tight">
+                  {maskValue(formatCurrency(safeDailySpend))}<span className="text-xs text-slate-400 font-bold">/dia</span>
+                </p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase">
+                    Já garantindo R$ 300 p/ investimento
+                  </p>
+                  <p className="text-[8px] font-black text-indigo-400 uppercase">
+                    {daysRemainingInMonth} {daysRemainingInMonth === 1 ? 'dia restante no mês' : 'dias restantes no mês'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

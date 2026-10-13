@@ -32,6 +32,7 @@ import {
   Legend
 } from 'recharts';
 import { supabase } from '../lib/supabase';
+import { triggerConfetti } from '../lib/confetti';
 
 export interface InvestmentRecord {
   id: string;
@@ -179,6 +180,16 @@ export function InvestimentosView({
     });
   }, [investments]);
 
+  // Status da meta de R$ 300 do mês atual
+  const currentMonthGoal = useMemo(() => {
+    const today = new Date();
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const currentRef = `${monthNames[today.getMonth()]}/${today.getFullYear()}`;
+    const found = investments.find(i => i.month_ref === currentRef);
+    const hasMetGoal = !!(found && found.deposit_amount >= 300);
+    return { currentRef, found, hasMetGoal };
+  }, [investments]);
+
   // Abrir modal para novo mês
   const handleOpenNew = () => {
     setEditingId(null);
@@ -263,7 +274,13 @@ export function InvestimentosView({
       showToast('Investimento atualizado com sucesso!');
     } else {
       setInvestments(prev => [...prev, record]);
-      showToast(`✨ Aporte de ${formatCurrency(dep)} e rendimento de ${formatCurrency(yldAmt)} registrados!`);
+      if (dep >= 300) {
+        triggerConfetti({ count: 140, durationMs: 4000 });
+        showToast(`🎉 PARABÉNS ${currentUser.toUpperCase()} & ${currentUser === 'Felipe' ? 'MARA' : 'FELIPE'}! Meta de ${formatCurrency(dep)} e rendimento de ${formatCurrency(yldAmt)} registrados!`, 'success');
+      } else {
+        triggerConfetti({ count: 80, durationMs: 3000 });
+        showToast(`✨ Aporte de ${formatCurrency(dep)} e rendimento de ${formatCurrency(yldAmt)} registrados!`, 'success');
+      }
 
       // Se marcado para sincronizar com o fluxo geral
       if (syncToFlow && dep > 0) {
@@ -322,6 +339,50 @@ export function InvestimentosView({
           </div>
         </div>
       </div>
+
+      {/* Banner de Celebração de Meta Batida */}
+      {currentMonthGoal.hasMetGoal ? (
+        <motion.div
+          initial={{ scale: 0.98, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="relative overflow-hidden rounded-3xl p-5 bg-gradient-to-r from-amber-500/15 via-emerald-500/20 to-teal-500/15 border border-emerald-500/40 backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-emerald-500/10"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-emerald-400 flex items-center justify-center text-2xl shadow-md shrink-0">
+              🎉
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase text-emerald-300 tracking-wider flex items-center gap-2">
+                Meta de R$ 300,00 Batida em {currentMonthGoal.currentRef}!
+              </p>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                Parabéns {currentUser === 'Mara' ? 'Mara & Felipe' : 'Felipe & Mara'}! Vocês garantiram o aporte deste mês e o futuro do casal já está rendendo.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => triggerConfetti({ count: 140, durationMs: 4000 })}
+            className="px-4 py-2.5 bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-slate-950 font-black text-xs uppercase rounded-xl tracking-wider transition-all flex items-center gap-2 shrink-0 shadow-md shadow-emerald-500/20 active:scale-95"
+          >
+            <Sparkles size={14} className="stroke-[3]" /> Soltar Confetes!
+          </button>
+        </motion.div>
+      ) : (
+        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">🎯</span>
+            <p className="text-xs text-slate-300">
+              <strong className="text-emerald-400 font-black">Meta de {currentMonthGoal.currentRef}:</strong> Guardar <strong className="text-white">R$ 300,00</strong> este mês. Assim que fizer o depósito, clique no botão e registre!
+            </p>
+          </div>
+          <button
+            onClick={handleOpenNew}
+            className="text-[10px] font-black uppercase tracking-wider text-emerald-400 hover:text-emerald-300 underline underline-offset-4"
+          >
+            Registrar Agora →
+          </button>
+        </div>
+      )}
 
       {/* Cards de Métricas Principais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
